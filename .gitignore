@@ -1,0 +1,9 @@
+.DS_Store
+.vscode/settings.json
+
+backend/node_modules/
+backend/.env
+backend/npm-debug.log*
+backend/yarn-debug.log*
+backend/yarn-error.log*
+backend/pnpm-debug.log*
