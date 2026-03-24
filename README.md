@@ -1,6 +1,6 @@
 # Mantion Project Structure
 
-โปรเจกต์นี้ถูกจัดโครงสร้างใหม่ให้แยก Frontend, Backend และ API ชัดเจน
+จัดโครงสร้างใหม่ให้แยก Frontend, Backend และ API ชัดเจน
 
 ## Project Layout
 
