@@ -22,7 +22,7 @@ if (menuToggle && siteNav) {
 }
 
 const revealItems = document.querySelectorAll('.section-reveal');
-const API_BASE = window.MANTION_API_BASE || 'http://localhost:5001/api';
+const API_BASE = window.MANTION_API_BASE || 'http://localhost:5000/api';
 
 function setAuthStatus(message) {
 	if (authStatus) {

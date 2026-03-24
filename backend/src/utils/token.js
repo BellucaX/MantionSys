@@ -14,6 +14,19 @@ function signAuthToken(user) {
   );
 }
 
+function signAdminToken() {
+  return jwt.sign(
+    {
+      sub: 'admin',
+      role: 'admin',
+      name: 'Administrator',
+    },
+    JWT_SECRET,
+    { expiresIn: '12h' }
+  );
+}
+
 module.exports = {
   signAuthToken,
+  signAdminToken,
 };
