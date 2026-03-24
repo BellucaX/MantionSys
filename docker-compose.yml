@@ -1,0 +1,23 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    container_name: mantion-backend
+    environment:
+      PORT: 5000
+      JWT_SECRET: mantion-dev-secret
+      GOOGLE_CLIENT_ID: ""
+      ADMIN_PASSCODE: admin1234
+    ports:
+      - "5000:5000"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: mantion-frontend
+    ports:
+      - "8081:80"
+    depends_on:
+      - backend
+    restart: unless-stopped

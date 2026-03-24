@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>P.P Mantion | Admin Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="page-bg" aria-hidden="true"></div>
+
+    <header class="site-header">
+        <div class="container nav-wrap">
+            <a class="brand" href="index.html">
+                <span class="brand-mark">PP</span>
+                <span class="brand-text">Mantion Admin</span>
+            </a>
+            <nav class="site-nav admin-nav-inline">
+                <a href="index.html">กลับหน้าเว็บหลัก</a>
+                <button id="refreshDashboardBtn" class="btn btn-ghost" type="button">รีเฟรช</button>
+            </nav>
+        </div>
+    </header>
+
+    <main class="section">
+        <div class="container admin-layout">
+            <section class="admin-card">
+                <p class="kicker">ADMIN ACCESS</p>
+                <h1 class="admin-title">เข้าสู่ระบบผู้ดูแล</h1>
+
+                <form id="adminLoginForm" class="reserve-card">
+                    <label>รหัสผู้ดูแล (Admin Passcode)
+                        <input id="adminPasscode" name="passcode" type="password" required placeholder="กรอกรหัส admin">
+                    </label>
+                    <button class="btn btn-primary" type="submit">เข้าสู่ระบบแอดมิน</button>
+                </form>
+
+                <div id="adminAuthStatus" class="reserve-status">ยังไม่ได้เข้าสู่ระบบผู้ดูแล</div>
+            </section>
+
+            <section class="admin-card">
+                <div class="admin-headline">
+                    <div>
+                        <p class="kicker">BUILDING OVERVIEW</p>
+                        <h2>Dashboard ทั้งตึก</h2>
+                    </div>
+                </div>
+
+                <div id="adminSummary" class="admin-summary-grid"></div>
+            </section>
+
+            <section class="admin-card">
+                <h3>คนจะเข้า / รอเช็คอิน</h3>
+                <div id="arrivalsList" class="admin-list">ยังไม่มีข้อมูล</div>
+            </section>
+
+            <section class="admin-card">
+                <h3>คนจะออก / รอเช็คเอาท์</h3>
+                <div id="departuresList" class="admin-list">ยังไม่มีข้อมูล</div>
+            </section>
+
+            <section class="admin-card admin-room-card">
+                <h3>สถานะรายห้องทั้งตึก</h3>
+                <div id="roomGrid" class="admin-room-grid">ยังไม่มีข้อมูล</div>
+            </section>
+        </div>
+    </main>
+
+    <script src="admin.js"></script>
+</body>
+</html>
