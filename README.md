@@ -190,7 +190,7 @@ Mantion/
 
 ```json
 {
-  "passcode": "change_this_admin_passcode"
+  "passcode": " "
 }
 ```
 

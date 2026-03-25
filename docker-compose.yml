@@ -11,6 +11,8 @@ services:
     ports:
       - "5000:5000"
     restart: unless-stopped
+    # เพิ่มเพื่อให้ Backend รู้ว่ารันในโหมดไหน (ถ้ามี logic เช็ค env)
+    # NODE_ENV: development 
 
   frontend:
     build:

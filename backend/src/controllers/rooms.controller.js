@@ -9,7 +9,16 @@ function listRooms(req, res) {
     return true;
   });
 
-  return res.json({ data: filtered });
+  // แก้ตรงนี้: ส่ง filtered ออกไปตรงๆ ไม่ต้องมี { data: ... }
+  // และ map ข้อมูลให้มี field ที่ script.js ต้องการ
+  const result = filtered.map(room => ({
+    ...room,
+    price: room.price || room.pricePerNight, // รองรับทั้งสองชื่อ
+    floor: room.floor || Math.floor(parseInt(room.roomNumber) / 100), // คำนวณชั้นจากเลขห้องถ้าไม่มี
+    name: room.name || `ห้อง ${room.roomNumber}` // สร้างชื่อห้องถ้าไม่มี
+  }));
+
+  return res.json(result); 
 }
 
 function getRoomById(req, res) {
@@ -20,7 +29,12 @@ function getRoomById(req, res) {
     return res.status(404).json({ error: 'Not Found', message: 'Room not found' });
   }
 
-  return res.json({ data: room });
+  // แก้ตรงนี้: ส่ง room ออกไปตรงๆ
+  return res.json({
+    ...room,
+    price: room.price || room.pricePerNight,
+    floor: room.floor || Math.floor(parseInt(room.roomNumber) / 100)
+  });
 }
 
 function createRoom(req, res) {
@@ -51,7 +65,8 @@ function createRoom(req, res) {
   };
 
   rooms.push(newRoom);
-  return res.status(201).json({ data: newRoom });
+  // สำหรับ Create ส่ง Object กลับไปได้เลย
+  return res.status(201).json(newRoom);
 }
 
 function updateRoomStatus(req, res) {
@@ -66,13 +81,13 @@ function updateRoomStatus(req, res) {
     });
   }
 
-  const room = rooms.find((item) => item.id === roomId);
-  if (!room) {
+  const roomIndex = rooms.findIndex((item) => item.id === roomId);
+  if (roomIndex === -1) {
     return res.status(404).json({ error: 'Not Found', message: 'Room not found' });
   }
 
-  room.status = status;
-  return res.json({ data: room });
+  rooms[roomIndex].status = status;
+  return res.json(rooms[roomIndex]);
 }
 
 module.exports = {
