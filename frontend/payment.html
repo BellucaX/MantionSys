@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ชำระเงิน | P.P Mantion</title>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css?v=1.6">
+    <style>
+        .payment-page { padding: 100px 0; min-height: 100vh; display: flex; align-items: center; }
+        .payment-card { 
+            background: rgba(255, 255, 255, 0.7); 
+            backdrop-filter: blur(15px); 
+            border: 1px solid var(--line);
+            border-radius: 24px;
+            padding: 40px;
+            box-shadow: var(--shadow);
+            max-width: 500px;
+            margin: 0 auto;
+            width: 92%;
+        }
+        .summary-item { display: flex; justify-content: space-between; margin-bottom: 12px; border-bottom: 1px solid rgba(0,0,0,0.05); padding-bottom: 8px; }
+        .qr-section { text-align: center; margin: 30px 0; padding: 20px; background: #fff; border-radius: 16px; border: 1px solid var(--line); }
+        .qr-code { width: 220px; height: 220px; background: #eee; margin: 0 auto 15px; display: grid; place-items: center; }
+    </style>
+</head>
+<body>
+    <div class="page-bg"></div>
+    <main class="payment-page">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+<div class="payment-card">
+    <h2 style="font-family: 'Playfair Display', serif;">ชำระเงินค่าจอง</h2>
+    
+    <div id="countdown" style="color: #d9534f; font-weight: bold; margin-bottom: 10px;">
+        กรุณาชำระเงินภายใน <span id="timer">10:00</span>
+    </div>
+
+    <div class="summary-box">
+        <div class="summary-item"><span>ห้องพัก:</span> <strong id="sumRoom">-</strong></div>
+        <div class="summary-item"><span>ยอดรวมทั้งสิ้น:</span> <strong id="sumPrice" style="color: #af8340; font-size: 1.4rem;">฿0</strong></div>
+    </div>
+
+    <div style="background: white; padding: 20px; border-radius: 15px; margin-bottom: 20px;">
+        <div id="qrcode" style="display: flex; justify-content: center; margin-bottom: 10px;"></div>
+        <p style="font-size: 0.8rem; margin: 0; color: #333;"><strong>Thai QR Payment</strong></p>
+        <p style="font-size: 0.7rem; color: #888;">ชื่อบัญชี: P.P Mantion Co., Ltd.</p>
+    </div>
+
+    <div style="text-align: left; margin-bottom: 20px;">
+        <label style="font-size: 0.9rem; color: var(--muted);">อัปโหลดหลักฐานการโอนเงิน (สลิป):</label>
+        <input type="file" id="slipInput" accept="image/*" style="margin-top: 5px; width: 100%;">
+        <div id="slipPreview" style="display:none; margin-top: 10px; text-align: center;">
+            <img id="previewImg" src="" style="max-width: 100%; height: 150px; border-radius: 8px; object-fit: contain;">
+        </div>
+    </div>
+
+    <button id="confirmBtn" class="btn-pay" disabled>ยืนยันและส่งหลักฐาน</button>
+</div>
+    </main>
+
+    <script src="script.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const data = JSON.parse(sessionStorage.getItem('pendingBooking'));
+            if (!data) { window.location.href = 'index.html'; return; }
+
+            document.getElementById('sumRoom').textContent = data.roomName;
+            document.getElementById('sumGuest').textContent = data.guestName;
+            document.getElementById('sumAmount').textContent = `฿${data.amount.toLocaleString()}`;
+
+            const payBtn = document.getElementById('confirmPayBtn');
+            payBtn.addEventListener('click', async () => {
+                try {
+                    payBtn.disabled = true;
+                    payBtn.textContent = 'กำลังยืนยัน...';
+                    
+                    // เรียก API Confirm การจอง
+                    await requestJson(`${API_BASE}/bookings/confirm`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            holdToken: data.holdToken,
+                            guestName: data.guestName,
+                            guestPhone: data.guestPhone,
+                            paymentIntentId: "PAY-" + Math.random().toString(36).substr(2, 9) // ID จำลอง
+                        }),
+                    });
+
+                    alert('การจองของคุณสำเร็จแล้ว! ขอบคุณที่ใช้บริการ');
+                    sessionStorage.removeItem('pendingBooking');
+                    window.location.href = 'index.html';
+                } catch (error) {
+                    alert('เกิดข้อผิดพลาดในการยืนยัน: ' + error.message);
+                    payBtn.disabled = false;
+                    payBtn.textContent = 'ฉันชำระเงินเรียบร้อยแล้ว';
+                }
+            });
+        });
+    </script>
+</body>
+</html>

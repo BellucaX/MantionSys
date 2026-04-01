@@ -824,3 +824,22 @@ body {
 		transform: none;
 	}
 }
+
+/* เพิ่มใน style.css */
+#bookingSummary p {
+    display: flex;
+    justify-content: space-between;
+    margin: 10px 0;
+    padding-bottom: 5px;
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+}
+
+#bookingSummary strong {
+    color: var(--accent-dark);
+}
+
+.payment-methods h3 {
+    margin-top: 30px;
+    font-family: 'Playfair Display', serif;
+    text-align: center;
+}

@@ -10,9 +10,10 @@ services:
       ADMIN_PASSCODE: admin1234
     ports:
       - "5000:5000"
+    volumes:
+      - ./backend:/app           # เชื่อมโฟลเดอร์ backend (แก้ไขโค้ดฝั่ง Server ได้ทันที)
+      - /app/node_modules        # ป้องกันไม่ให้ไฟล์ในเครื่องไปทับ node_modules ใน container
     restart: unless-stopped
-    # เพิ่มเพื่อให้ Backend รู้ว่ารันในโหมดไหน (ถ้ามี logic เช็ค env)
-    # NODE_ENV: development 
 
   frontend:
     build:
@@ -20,6 +21,8 @@ services:
     container_name: mantion-frontend
     ports:
       - "8081:80"
+    volumes:
+      - ./frontend:/usr/share/nginx/html # เชื่อมโฟลเดอร์ frontend กับที่เก็บไฟล์ของ Nginx
     depends_on:
       - backend
     restart: unless-stopped

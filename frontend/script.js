@@ -169,86 +169,59 @@ if (loginForm) {
 	});
 }
 
+// แก้ไขส่วนท้ายของ reserveForm ใน script.js
 if (reserveForm) {
-	reserveForm.addEventListener('submit', async (event) => {
-		event.preventDefault();
-		const formData = new FormData(reserveForm);
+    reserveForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const formData = new FormData(reserveForm);
 
-		const payload = {
-			roomId: Number(formData.get('roomId')),
-			checkInDate: formData.get('checkInDate'),
-			checkOutDate: formData.get('checkOutDate'),
-			guestCount: Number(formData.get('guestCount')),
-			guestName: String(formData.get('guestName') || '').trim(),
-			guestPhone: String(formData.get('guestPhone') || '').trim(),
-		};
+        // 1. ดึงข้อมูลจากฟอร์มมาสร้าง Payload (ห้ามลบส่วนนี้)
+        const payload = {
+            roomId: Number(formData.get('roomId')),
+            checkInDate: formData.get('checkInDate'),
+            checkOutDate: formData.get('checkOutDate'),
+            guestCount: Number(formData.get('guestCount')),
+            guestName: String(formData.get('guestName') || '').trim(),
+            guestPhone: String(formData.get('guestPhone') || '').trim(),
+        };
 
-		if (!payload.checkInDate || !payload.checkOutDate) {
-			setReserveStatus('กรุณาเลือกวันเช็คอินและเช็คเอาต์');
-			return;
-		}
+        if (!payload.checkInDate || !payload.checkOutDate) {
+            setReserveStatus('กรุณาเลือกวันเช็คอินและเช็คเอาต์');
+            return;
+        }
 
-		try {
-			showVerifyOverlay(
-				'กำลังตรวจสอบห้องว่าง...',
-				'โปรดรอสักครู่ ระบบกำลังเช็คข้อมูลล่าสุดจากฐานข้อมูล'
-			);
+        try {
+            showVerifyOverlay('กำลังตรวจสอบห้องว่าง...', 'โปรดรอสักครู่ ระบบกำลังเช็คข้อมูลล่าสุด');
 
-			const precheckPromise = requestJson(`${API_BASE}/bookings/precheck`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					roomId: payload.roomId,
-					checkInDate: payload.checkInDate,
-					checkOutDate: payload.checkOutDate,
-					guestCount: payload.guestCount,
-				}),
-			});
+            // 2. เรียก API Precheck เพื่อล็อกห้องชั่วคราว
+            const precheckResult = await requestJson(`${API_BASE}/bookings/precheck`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    roomId: payload.roomId,
+                    checkInDate: payload.checkInDate,
+                    checkOutDate: payload.checkOutDate,
+                    guestCount: payload.guestCount,
+                }),
+            });
 
-			await waitMs(900);
-			const precheckResult = await precheckPromise;
+            // 3. เก็บข้อมูลที่จำเป็นลง SessionStorage เพื่อเอาไปใช้หน้า Payment
+            const bookingData = {
+                ...payload,
+                holdToken: precheckResult.data.holdToken,
+                roomName: reserveForm.querySelector('select[name="roomId"] option:checked').text,
+                amount: 1000 // ในอนาคตสามารถดึงราคาจริงจาก API มาใส่ตรงนี้ได้
+            };
+            sessionStorage.setItem('pendingBooking', JSON.stringify(bookingData));
 
-			showVerifyOverlay(
-				'กำลังล็อกห้องชั่วคราว...',
-				`ล็อกห้องสำเร็จ ${precheckResult.data.holdMinutes} นาที กำลังสร้างขั้นตอนชำระเงิน`
-			);
+            // 4. เปลี่ยนหน้าไปยังหน้าชำระเงิน
+            window.location.href = 'payment.html';
 
-			await waitMs(700);
-			const paymentIntent = await requestJson(`${API_BASE}/bookings/payment-intent`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					holdToken: precheckResult.data.holdToken,
-					amount: 1000,
-				}),
-			});
-
-			showVerifyOverlay(
-				'พร้อมเข้าสู่การชำระเงิน',
-				'ตัวอย่างนี้จำลองการชำระเงินอัตโนมัติและยืนยันการจองทันที'
-			);
-
-			await waitMs(900);
-			const confirmed = await requestJson(`${API_BASE}/bookings/confirm`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					holdToken: precheckResult.data.holdToken,
-					paymentIntentId: paymentIntent.data.paymentIntentId,
-					guestName: payload.guestName,
-					guestPhone: payload.guestPhone,
-				}),
-			});
-
-			setReserveStatus(
-				`ยืนยันการจองสำเร็จ: Booking #${confirmed.data.id} ห้อง ${confirmed.data.roomId} สถานะ ${confirmed.data.status}`
-			);
-		} catch (error) {
-			setReserveStatus(`ยืนยันห้องไม่สำเร็จ: ${error.message}`);
-		} finally {
-			hideVerifyOverlay();
-		}
-	});
+        } catch (error) {
+            setReserveStatus(`เกิดข้อผิดพลาด: ${error.message}`);
+            hideVerifyOverlay();
+        }
+    });
 }
 
 hideVerifyOverlay();
@@ -322,4 +295,81 @@ refreshProfile();
 
 window.addEventListener('load', () => {
 	initGoogleQuickLogin();
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+    const data = JSON.parse(sessionStorage.getItem('pendingBooking'));
+    if (!data) return;
+
+    // --- 1. แสดงข้อมูลและสร้าง QR Code (จำลอง) ---
+    document.getElementById('sumRoom').textContent = data.roomName;
+    document.getElementById('sumPrice').textContent = `฿${data.amount.toLocaleString()}`;
+    
+    // สร้าง QR Code (ในที่นี้ใช้ URL จำลอง หรือข้อความ PromptPay)
+    new QRCode(document.getElementById("qrcode"), {
+        text: `https://promptpay.io/0812345678/${data.amount}`, // แทนที่ด้วยเบอร์จริงได้
+        width: 180,
+        height: 180
+    });
+
+    // --- 2. ระบบนับเวลาถอยหลัง 10 นาที ---
+    let timeLeft = 600; // 10 minutes in seconds
+    const timerElement = document.getElementById('timer');
+    const interval = setInterval(() => {
+        const mins = Math.floor(timeLeft / 60);
+        const secs = timeLeft % 60;
+        timerElement.textContent = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+        if (timeLeft <= 0) {
+            clearInterval(interval);
+            alert('หมดเวลาชำระเงิน กรุณาทำการจองใหม่');
+            window.location.href = 'index.html';
+        }
+        timeLeft--;
+    }, 1000);
+
+    // --- 3. ตรวจสอบการเลือกไฟล์สลิป ---
+    const slipInput = document.getElementById('slipInput');
+    const confirmBtn = document.getElementById('confirmBtn');
+    
+    slipInput.addEventListener('change', function() {
+        if (this.files && this.files[0]) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                document.getElementById('previewImg').src = e.target.result;
+                document.getElementById('slipPreview').style.display = 'block';
+                confirmBtn.disabled = false; // ปลดล็อกปุ่มเมื่อมีไฟล์
+            };
+            reader.readAsDataURL(this.files[0]);
+        }
+    });
+
+    // --- 4. กดยืนยัน (จำลองการตรวจสอบสลิป) ---
+    confirmBtn.addEventListener('click', async () => {
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML = '<span class="spinner"></span> กำลังตรวจสอบสลิป...';
+        
+        // จำลอง Delay เหมือนระบบกำลัง Scan สลิปจริง
+        setTimeout(async () => {
+            try {
+                await requestJson(`${API_BASE}/bookings/confirm`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        holdToken: data.holdToken,
+                        guestName: data.guestName,
+                        guestPhone: data.guestPhone,
+                        paymentIntentId: "SLIP_VERIFIED_" + Math.random().toString(36).substr(2, 9)
+                    }),
+                });
+
+                alert('ระบบได้รับหลักฐานการโอนเงินแล้ว! การจองสำเร็จ');
+                sessionStorage.removeItem('pendingBooking');
+                window.location.href = 'index.html';
+            } catch (err) {
+                alert('ยืนยันไม่สำเร็จ: ' + err.message);
+                confirmBtn.disabled = false;
+                confirmBtn.textContent = 'ยืนยันและส่งหลักฐาน';
+            }
+        }, 2500); // รอ 2.5 วินาทีให้ดูเหมือนตรวจสอบจริง
+    });
 });
