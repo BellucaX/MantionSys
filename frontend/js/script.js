@@ -8,6 +8,15 @@ const reserveStatus = document.getElementById('reserveStatus');
 const verifyOverlay = document.getElementById('verifyOverlay');
 const verifyTitle = document.getElementById('verifyTitle');
 const verifyText = document.getElementById('verifyText');
+const paymentOverlay = document.getElementById('paymentOverlay');
+const paymentAmountDisplay = document.getElementById('paymentAmountDisplay');
+const qrCodeImage = document.getElementById('qrCodeImage');
+const btnMockPaymentSuccess = document.getElementById('btnMockPaymentSuccess');
+const btnCancelPayment = document.getElementById('btnCancelPayment');
+const timerDisplay = document.getElementById('timer');
+const slipInput = document.getElementById('slipInput');
+const slipPreview = document.getElementById('slipPreview');
+const previewImg = document.getElementById('previewImg');
 
 const REQUEST_TIMEOUT_MS = 12000;
 
@@ -22,7 +31,7 @@ if (menuToggle && siteNav) {
 }
 
 const revealItems = document.querySelectorAll('.section-reveal');
-const API_BASE = window.MANTION_API_BASE || 'http://localhost:5000/api';
+const API_BASE = window.MANTION_API_BASE || 'http://localhost:5001/api';
 
 function setAuthStatus(message) {
 	if (authStatus) {
@@ -223,12 +232,96 @@ if (reserveForm) {
 				}),
 			});
 
+			hideVerifyOverlay();
+			
+			if (paymentOverlay && qrCodeImage && paymentAmountDisplay) {
+				qrCodeImage.src = paymentIntent.data.qrCodeImage;
+				paymentAmountDisplay.textContent = Number(paymentIntent.data.amount).toLocaleString();
+				
+				if (slipInput) slipInput.value = '';
+				if (slipPreview) slipPreview.style.display = 'none';
+				if (previewImg) previewImg.src = '';
+				btnMockPaymentSuccess.disabled = true;
+				
+				paymentOverlay.hidden = false;
+
+				await new Promise((resolve, reject) => {
+					let timeLeft = 600; // 10 minutes
+					let intervalId = null;
+
+					if (timerDisplay) {
+						timerDisplay.textContent = '10:00';
+						intervalId = setInterval(() => {
+							timeLeft--;
+							const mins = Math.floor(timeLeft / 60);
+							const secs = timeLeft % 60;
+							timerDisplay.textContent = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+							
+							// เพิ่ม urgent class เมื่อเหลือน้อยกว่า 2 นาที
+							const countdownEl = document.getElementById('countdown');
+							if (countdownEl) countdownEl.classList.toggle('urgent', timeLeft <= 120);
+							
+							if (timeLeft <= 0) {
+								cleanup();
+								reject(new Error('หมดเวลาการชำระเงิน กรุณาทำรายการจองใหม่'));
+							}
+						}, 1000);
+					}
+
+					const onSlipChange = function() {
+						if (this.files && this.files[0]) {
+							const reader = new FileReader();
+							reader.onload = (e) => {
+								if (previewImg) previewImg.src = e.target.result;
+								if (slipPreview) slipPreview.hidden = false;
+								btnMockPaymentSuccess.disabled = false;
+							};
+							reader.readAsDataURL(this.files[0]);
+						} else {
+							btnMockPaymentSuccess.disabled = true;
+							if (slipPreview) slipPreview.hidden = true;
+						}
+					};
+
+					if (slipInput) {
+						slipInput.addEventListener('change', onSlipChange);
+					}
+
+					const onSuccess = async () => { 
+						btnMockPaymentSuccess.disabled = true;
+						const originalText = btnMockPaymentSuccess.textContent;
+						btnMockPaymentSuccess.innerHTML = '<span class="spinner" style="width:16px;height:16px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:8px;"></span> กำลังตรวจสอบสลิป...';
+						
+						await waitMs(2500); // simulate slip verification delay
+						btnMockPaymentSuccess.innerHTML = originalText;
+						
+						cleanup(); 
+						resolve(); 
+					};
+					
+					const onCancel = () => { cleanup(); reject(new Error('ผู้ใช้ยกเลิกการชำระเงิน')); };
+					
+					const cleanup = () => {
+						if (intervalId) clearInterval(intervalId);
+						// reset urgent state
+						const countdownEl = document.getElementById('countdown');
+						if (countdownEl) countdownEl.classList.remove('urgent');
+						btnMockPaymentSuccess.removeEventListener('click', onSuccess);
+						btnCancelPayment.removeEventListener('click', onCancel);
+						if (slipInput) slipInput.removeEventListener('change', onSlipChange);
+						paymentOverlay.hidden = true;
+					};
+					
+					btnMockPaymentSuccess.addEventListener('click', onSuccess);
+					btnCancelPayment.addEventListener('click', onCancel);
+				});
+			}
+
 			showVerifyOverlay(
-				'พร้อมเข้าสู่การชำระเงิน',
-				'ตัวอย่างนี้จำลองการชำระเงินอัตโนมัติและยืนยันการจองทันที'
+				'กำลังยืนยันการจอง...',
+				'ระบบได้รับข้อมูลการชำระเงินแล้ว กำลังออกใบจองให้คุณ'
 			);
 
-			await waitMs(900);
 			const confirmed = await requestJson(`${API_BASE}/bookings/confirm`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
@@ -274,9 +367,15 @@ function initGoogleQuickLogin() {
 	const clientId = metaClientId ? metaClientId.content : '';
 	const googleBtn = document.getElementById('googleBtn');
 
-	if (!window.google || !googleBtn) return;
+	if (!window.google || !googleBtn) {
+		// แสดง placeholder เมื่อ Google SDK ยังโหลดไม่สำเร็จ
+		if (googleBtn && (!clientId || clientId.includes('your_google_client_id'))) {
+			googleBtn.innerHTML = '<span class="google-placeholder-text">⚙️ ตั้งค่า Google Client ID ก่อนใช้งาน Quick Login</span>';
+		}
+		return;
+	}
 	if (!clientId || clientId.includes('your_google_client_id')) {
-		googleBtn.textContent = 'ตั้งค่า google-signin-client_id ก่อนใช้งาน';
+		googleBtn.innerHTML = '<span class="google-placeholder-text">⚙️ ตั้งค่า Google Client ID ก่อนใช้งาน Quick Login</span>';
 		return;
 	}
 

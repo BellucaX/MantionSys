@@ -1,86 +1,110 @@
 const { ADMIN_PASSCODE } = require('../config/env');
 const { signAdminToken } = require('../utils/token');
-const { rooms, bookings, roomHolds, purgeExpiredHolds } = require('../data/store');
-
-function getDateOnly(value) {
-  if (!value) return '';
-  return String(value).slice(0, 10);
-}
+const db = require('../db/connection');
 
 function adminLogin(req, res) {
   const { passcode } = req.body;
 
   if (!passcode) {
-    return res.status(400).json({
-      error: 'Bad Request',
-      message: 'passcode is required',
-    });
+    return res.status(400).json({ error: 'Bad Request', message: 'passcode is required' });
   }
 
   if (String(passcode) !== String(ADMIN_PASSCODE)) {
-    return res.status(401).json({
-      error: 'Unauthorized',
-      message: 'Invalid admin passcode',
-    });
+    return res.status(401).json({ error: 'Unauthorized', message: 'Invalid admin passcode' });
   }
 
   const token = signAdminToken();
-  return res.json({
-    data: {
-      token,
-      role: 'admin',
-      name: 'Administrator',
-    },
-  });
+  return res.json({ data: { token, role: 'admin', name: 'Administrator' } });
 }
 
 function getAdminDashboard(req, res) {
-  purgeExpiredHolds();
+  // Purge expired holds
+  db.prepare('DELETE FROM room_holds WHERE expiresAt <= ?').run(new Date().toISOString());
 
-  const today = getDateOnly(new Date().toISOString());
+  const today = new Date().toISOString().slice(0, 10);
 
-  const arrivalsToday = bookings.filter(
-    (booking) => booking.status === 'reserved' && getDateOnly(booking.checkInDate) === today
-  );
+  // Aggregate summary from DB
+  const summary = db
+    .prepare(
+      `SELECT
+        (SELECT COUNT(*) FROM rooms)                                                  AS totalRooms,
+        (SELECT COUNT(*) FROM rooms WHERE status = 'available')                       AS availableRooms,
+        (SELECT COUNT(*) FROM rooms WHERE status = 'occupied')                        AS occupiedRooms,
+        (SELECT COUNT(*) FROM rooms WHERE status = 'maintenance')                     AS maintenanceRooms,
+        (SELECT COUNT(*) FROM bookings WHERE status IN ('reserved','checked_in'))     AS activeBookings,
+        (SELECT COUNT(*) FROM bookings WHERE status = 'reserved'
+          AND substr(checkInDate,1,10) = ?)                                           AS arrivalsToday,
+        (SELECT COUNT(*) FROM bookings WHERE status = 'checked_in'
+          AND substr(checkOutDate,1,10) = ?)                                          AS departuresToday,
+        (SELECT COUNT(*) FROM bookings WHERE status = 'reserved'
+          AND substr(checkInDate,1,10) <= ?)                                          AS waitingCheckIn,
+        (SELECT COUNT(*) FROM bookings WHERE status = 'checked_in'
+          AND substr(checkOutDate,1,10) <= ?)                                         AS waitingCheckOut
+      `
+    )
+    .get(today, today, today, today);
 
-  const departuresToday = bookings.filter(
-    (booking) => booking.status === 'checked_in' && getDateOnly(booking.checkOutDate) === today
-  );
+  const arrivalsToday = db
+    .prepare(`SELECT * FROM bookings WHERE status = 'reserved' AND substr(checkInDate,1,10) = ?`)
+    .all(today);
 
-  const dueCheckIn = bookings.filter(
-    (booking) => booking.status === 'reserved' && getDateOnly(booking.checkInDate) <= today
-  );
+  const departuresToday = db
+    .prepare(`SELECT * FROM bookings WHERE status = 'checked_in' AND substr(checkOutDate,1,10) = ?`)
+    .all(today);
 
-  const dueCheckOut = bookings.filter(
-    (booking) => booking.status === 'checked_in' && getDateOnly(booking.checkOutDate) <= today
-  );
+  const waitingCheckIn = db
+    .prepare(`SELECT * FROM bookings WHERE status = 'reserved' AND substr(checkInDate,1,10) <= ?`)
+    .all(today);
 
-  const activeOrReservedStatuses = ['reserved', 'checked_in'];
+  const waitingCheckOut = db
+    .prepare(`SELECT * FROM bookings WHERE status = 'checked_in' AND substr(checkOutDate,1,10) <= ?`)
+    .all(today);
+
+  const rooms = db.prepare('SELECT * FROM rooms').all();
 
   const roomOverview = rooms.map((room) => {
-    const roomBookings = bookings
-      .filter((booking) => booking.roomId === room.id)
-      .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
-
-    const currentBooking = roomBookings.find((booking) => booking.status === 'checked_in')
-      || roomBookings.find(
-        (booking) => booking.status === 'reserved' && getDateOnly(booking.checkInDate) <= today
+    // Find current booking: checked_in first, then soonest reserved
+    const currentBooking = db
+      .prepare(
+        `SELECT * FROM bookings
+         WHERE roomId = ? AND status = 'checked_in'
+         LIMIT 1`
       )
-      || roomBookings.find((booking) => booking.status === 'reserved');
+      .get(room.id)
+      || db
+        .prepare(
+          `SELECT * FROM bookings
+           WHERE roomId = ? AND status = 'reserved' AND substr(checkInDate,1,10) <= ?
+           ORDER BY checkInDate ASC LIMIT 1`
+        )
+        .get(room.id, today)
+      || db
+        .prepare(
+          `SELECT * FROM bookings
+           WHERE roomId = ? AND status = 'reserved'
+           ORDER BY checkInDate ASC LIMIT 1`
+        )
+        .get(room.id);
 
-    const roomHold = roomHolds.find((hold) => hold.roomId === room.id) || null;
+    const roomHold = db
+      .prepare('SELECT * FROM room_holds WHERE roomId = ? LIMIT 1')
+      .get(room.id);
 
     return {
       id: room.id,
       roomNumber: room.roomNumber,
       type: room.type,
       roomStatus: room.status,
-      hasIncomingToday: roomBookings.some(
-        (booking) => booking.status === 'reserved' && getDateOnly(booking.checkInDate) === today
-      ),
-      hasOutgoingToday: roomBookings.some(
-        (booking) => booking.status === 'checked_in' && getDateOnly(booking.checkOutDate) === today
-      ),
+      hasIncomingToday: !!db
+        .prepare(
+          `SELECT id FROM bookings WHERE roomId = ? AND status = 'reserved' AND substr(checkInDate,1,10) = ? LIMIT 1`
+        )
+        .get(room.id, today),
+      hasOutgoingToday: !!db
+        .prepare(
+          `SELECT id FROM bookings WHERE roomId = ? AND status = 'checked_in' AND substr(checkOutDate,1,10) = ? LIMIT 1`
+        )
+        .get(room.id, today),
       currentBooking: currentBooking
         ? {
             id: currentBooking.id,
@@ -105,27 +129,14 @@ function getAdminDashboard(req, res) {
   return res.json({
     data: {
       date: today,
-      summary: {
-        totalRooms: rooms.length,
-        availableRooms: rooms.filter((room) => room.status === 'available').length,
-        occupiedRooms: rooms.filter((room) => room.status === 'occupied').length,
-        maintenanceRooms: rooms.filter((room) => room.status === 'maintenance').length,
-        activeBookings: bookings.filter((booking) => activeOrReservedStatuses.includes(booking.status)).length,
-        arrivalsToday: arrivalsToday.length,
-        departuresToday: departuresToday.length,
-        waitingCheckIn: dueCheckIn.length,
-        waitingCheckOut: dueCheckOut.length,
-      },
+      summary,
       arrivalsToday,
       departuresToday,
-      waitingCheckIn: dueCheckIn,
-      waitingCheckOut: dueCheckOut,
+      waitingCheckIn,
+      waitingCheckOut,
       roomOverview,
     },
   });
 }
 
-module.exports = {
-  adminLogin,
-  getAdminDashboard,
-};
+module.exports = { adminLogin, getAdminDashboard };

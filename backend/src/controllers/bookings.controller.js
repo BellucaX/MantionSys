@@ -1,153 +1,82 @@
 const crypto = require('crypto');
-const {
-  rooms,
-  bookings,
-  roomHolds,
-  paymentIntents,
-  getNextBookingId,
-  getNextPaymentIntentId,
-  purgeExpiredHolds,
-} = require('../data/store');
+const generatePayload = require('promptpay-qr');
+const qrcode = require('qrcode');
+const { PROMPTPAY_ID } = require('../config/env');
+const db = require('../db/connection');
 
 const HOLD_MINUTES = 10;
 
+// ── helpers ──────────────────────────────────────────────────────────────────
+
 function isDateRangeValid(checkInDate, checkOutDate) {
-  const checkIn = new Date(checkInDate).getTime();
-  const checkOut = new Date(checkOutDate).getTime();
-  return Number.isFinite(checkIn) && Number.isFinite(checkOut) && checkIn < checkOut;
+  const ci = new Date(checkInDate).getTime();
+  const co = new Date(checkOutDate).getTime();
+  return Number.isFinite(ci) && Number.isFinite(co) && ci < co;
 }
 
-function hasOverlap(startA, endA, startB, endB) {
-  return startA < endB && endA > startB;
+function purgeExpiredHolds() {
+  db.prepare('DELETE FROM room_holds WHERE expiresAt <= ?').run(new Date().toISOString());
 }
 
+/**
+ * Returns true if the room has an active booking overlapping the given range.
+ * Excludes cancelled and checked_out bookings.
+ */
 function isRoomBookedInRange(roomId, checkInDate, checkOutDate) {
-  const incomingStart = new Date(checkInDate).getTime();
-  const incomingEnd = new Date(checkOutDate).getTime();
-
-  return bookings.some((booking) => {
-    if (booking.roomId !== roomId) return false;
-    if (booking.status === 'cancelled' || booking.status === 'checked_out') return false;
-
-    const existingStart = new Date(booking.checkInDate).getTime();
-    const existingEnd = new Date(booking.checkOutDate).getTime();
-    return hasOverlap(incomingStart, incomingEnd, existingStart, existingEnd);
-  });
+  const row = db
+    .prepare(
+      `SELECT id FROM bookings
+       WHERE roomId = ?
+         AND status NOT IN ('cancelled', 'checked_out')
+         AND checkInDate  < ?
+         AND checkOutDate > ?
+       LIMIT 1`
+    )
+    .get(roomId, checkOutDate, checkInDate);
+  return !!row;
 }
 
+/**
+ * Returns true if the room has a non-expired hold overlapping the given range.
+ */
 function isRoomHeldInRange(roomId, checkInDate, checkOutDate) {
   purgeExpiredHolds();
-  const incomingStart = new Date(checkInDate).getTime();
-  const incomingEnd = new Date(checkOutDate).getTime();
-
-  return roomHolds.some((hold) => {
-    if (hold.roomId !== roomId) return false;
-    const holdStart = new Date(hold.checkInDate).getTime();
-    const holdEnd = new Date(hold.checkOutDate).getTime();
-    return hasOverlap(incomingStart, incomingEnd, holdStart, holdEnd);
-  });
+  const row = db
+    .prepare(
+      `SELECT holdToken FROM room_holds
+       WHERE roomId = ?
+         AND checkInDate  < ?
+         AND checkOutDate > ?
+       LIMIT 1`
+    )
+    .get(roomId, checkOutDate, checkInDate);
+  return !!row;
 }
 
-function findRoomOr404(roomId, res) {
-  const room = rooms.find((item) => item.id === Number(roomId));
-  if (!room) {
-    res.status(404).json({ error: 'Not Found', message: 'Room not found' });
-    return null;
-  }
-  return room;
-}
+// ── controllers ───────────────────────────────────────────────────────────────
 
 function listBookings(req, res) {
+  const bookings = db.prepare('SELECT * FROM bookings ORDER BY id DESC').all();
   return res.json({ data: bookings });
 }
 
 function getBookingById(req, res) {
-  const bookingId = Number(req.params.bookingId);
-  const booking = bookings.find((item) => item.id === bookingId);
-
+  const booking = db
+    .prepare('SELECT * FROM bookings WHERE id = ?')
+    .get(Number(req.params.bookingId));
   if (!booking) {
     return res.status(404).json({ error: 'Not Found', message: 'Booking not found' });
   }
-
   return res.json({ data: booking });
 }
 
 function createBooking(req, res) {
   const { roomId, guestName, guestPhone, checkInDate, checkOutDate, guestCount } = req.body;
 
-  if (!roomId || !guestName || !checkInDate || !checkOutDate || !guestCount) {
-    return res.status(400).json({
-      error: 'Bad Request',
-      message: 'roomId, guestName, checkInDate, checkOutDate, guestCount are required',
-    });
+  const room = db.prepare('SELECT * FROM rooms WHERE id = ?').get(Number(roomId));
+  if (!room) {
+    return res.status(404).json({ error: 'Not Found', message: 'Room not found' });
   }
-
-  const room = findRoomOr404(roomId, res);
-  if (!room) return;
-
-  if (room.status === 'maintenance') {
-    return res.status(409).json({
-      error: 'Conflict',
-      message: 'Room is under maintenance',
-    });
-  }
-
-  if (Number(guestCount) > room.maxGuests) {
-    return res.status(400).json({
-      error: 'Bad Request',
-      message: `guestCount exceeds maxGuests (${room.maxGuests})`,
-    });
-  }
-
-  if (!isDateRangeValid(checkInDate, checkOutDate)) {
-    return res.status(400).json({
-      error: 'Bad Request',
-      message: 'checkInDate must be before checkOutDate',
-    });
-  }
-
-  if (isRoomBookedInRange(room.id, checkInDate, checkOutDate) || isRoomHeldInRange(room.id, checkInDate, checkOutDate)) {
-    return res.status(409).json({
-      error: 'Conflict',
-      message: 'Room is already booked in this date range',
-    });
-  }
-
-  const newBooking = {
-    id: getNextBookingId(),
-    roomId: room.id,
-    guestName: String(guestName),
-    guestPhone: guestPhone ? String(guestPhone) : null,
-    checkInDate,
-    checkOutDate,
-    guestCount: Number(guestCount),
-    status: 'reserved',
-    createdAt: new Date().toISOString(),
-  };
-
-  bookings.push(newBooking);
-  return res.status(201).json({ data: newBooking });
-}
-
-function precheckAndHold(req, res) {
-  const { roomId, checkInDate, checkOutDate, guestCount } = req.body;
-
-  if (!roomId || !checkInDate || !checkOutDate || !guestCount) {
-    return res.status(400).json({
-      error: 'Bad Request',
-      message: 'roomId, checkInDate, checkOutDate, guestCount are required',
-    });
-  }
-
-  if (!isDateRangeValid(checkInDate, checkOutDate)) {
-    return res.status(400).json({
-      error: 'Bad Request',
-      message: 'checkInDate must be before checkOutDate',
-    });
-  }
-
-  const room = findRoomOr404(roomId, res);
-  if (!room) return;
 
   if (room.status === 'maintenance') {
     return res.status(409).json({ error: 'Conflict', message: 'Room is under maintenance' });
@@ -160,7 +89,66 @@ function precheckAndHold(req, res) {
     });
   }
 
-  if (isRoomBookedInRange(room.id, checkInDate, checkOutDate) || isRoomHeldInRange(room.id, checkInDate, checkOutDate)) {
+  if (!isDateRangeValid(checkInDate, checkOutDate)) {
+    return res.status(400).json({
+      error: 'Bad Request',
+      message: 'checkInDate must be before checkOutDate',
+    });
+  }
+
+  if (
+    isRoomBookedInRange(room.id, checkInDate, checkOutDate) ||
+    isRoomHeldInRange(room.id, checkInDate, checkOutDate)
+  ) {
+    return res.status(409).json({
+      error: 'Conflict',
+      message: 'Room is already booked in this date range',
+    });
+  }
+
+  const createdAt = new Date().toISOString();
+  const result = db
+    .prepare(
+      `INSERT INTO bookings
+         (roomId, guestName, guestPhone, checkInDate, checkOutDate, guestCount, status, createdAt)
+       VALUES (?, ?, ?, ?, ?, ?, 'reserved', ?)`
+    )
+    .run(room.id, guestName, guestPhone || null, checkInDate, checkOutDate, guestCount, createdAt);
+
+  const newBooking = db.prepare('SELECT * FROM bookings WHERE id = ?').get(result.lastInsertRowid);
+  return res.status(201).json({ data: newBooking });
+}
+
+function precheckAndHold(req, res) {
+  const { roomId, checkInDate, checkOutDate, guestCount } = req.body;
+
+  if (!isDateRangeValid(checkInDate, checkOutDate)) {
+    return res.status(400).json({
+      error: 'Bad Request',
+      message: 'checkInDate must be before checkOutDate',
+    });
+  }
+
+  const room = db.prepare('SELECT * FROM rooms WHERE id = ?').get(Number(roomId));
+  if (!room) {
+    return res.status(404).json({ error: 'Not Found', message: 'Room not found' });
+  }
+
+  if (room.status === 'maintenance') {
+    return res.status(409).json({ error: 'Conflict', message: 'Room is under maintenance' });
+  }
+
+  if (Number(guestCount) > room.maxGuests) {
+    return res.status(400).json({
+      error: 'Bad Request',
+      message: `guestCount exceeds maxGuests (${room.maxGuests})`,
+    });
+  }
+
+  if (
+    isRoomBookedInRange(room.id, checkInDate, checkOutDate) ||
+    isRoomHeldInRange(room.id, checkInDate, checkOutDate)
+  ) {
     return res.status(409).json({
       error: 'Conflict',
       message: 'Room is no longer available for selected dates',
@@ -169,94 +157,78 @@ function precheckAndHold(req, res) {
 
   const holdToken = `hold_${crypto.randomUUID()}`;
   const expiresAt = new Date(Date.now() + HOLD_MINUTES * 60 * 1000).toISOString();
+  const createdAt = new Date().toISOString();
 
-  roomHolds.push({
-    holdToken,
-    roomId: room.id,
-    checkInDate,
-    checkOutDate,
-    guestCount: Number(guestCount),
-    expiresAt,
-    createdAt: new Date().toISOString(),
-  });
+  db.prepare(
+    `INSERT INTO room_holds (holdToken, roomId, checkInDate, checkOutDate, guestCount, expiresAt, createdAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
+  ).run(holdToken, room.id, checkInDate, checkOutDate, guestCount, expiresAt, createdAt);
 
   return res.json({
-    data: {
-      available: true,
-      holdToken,
-      holdExpiresAt: expiresAt,
-      holdMinutes: HOLD_MINUTES,
-    },
+    data: { available: true, holdToken, holdExpiresAt: expiresAt, holdMinutes: HOLD_MINUTES },
   });
 }
 
-function createPaymentIntent(req, res) {
+async function createPaymentIntent(req, res) {
   purgeExpiredHolds();
   const { holdToken, amount } = req.body;
 
-  if (!holdToken) {
-    return res.status(400).json({ error: 'Bad Request', message: 'holdToken is required' });
-  }
-
-  const hold = roomHolds.find((item) => item.holdToken === holdToken);
+  const hold = db.prepare('SELECT * FROM room_holds WHERE holdToken = ?').get(holdToken);
   if (!hold) {
-    return res.status(409).json({
-      error: 'Conflict',
-      message: 'Hold token is invalid or expired',
-    });
+    return res.status(409).json({ error: 'Conflict', message: 'Hold token is invalid or expired' });
   }
 
-  const paymentIntent = {
-    id: getNextPaymentIntentId(),
-    paymentIntentId: `pi_${crypto.randomUUID().slice(0, 12)}`,
-    holdToken,
-    amount: Number(amount) || 0,
-    status: 'requires_confirmation',
-    createdAt: new Date().toISOString(),
-  };
+  const paymentIntentId = `pi_${crypto.randomUUID().slice(0, 12)}`;
+  const createdAt = new Date().toISOString();
+  const numericalAmount = Number(amount) || 0;
 
-  paymentIntents.push(paymentIntent);
+  db.prepare(
+    `INSERT INTO payment_intents (paymentIntentId, holdToken, amount, status, createdAt)
+     VALUES (?, ?, ?, 'requires_confirmation', ?)`
+  ).run(paymentIntentId, holdToken, numericalAmount, createdAt);
 
-  return res.json({
-    data: {
-      paymentIntentId: paymentIntent.paymentIntentId,
-      status: paymentIntent.status,
-    },
-  });
+  try {
+    const payload = generatePayload(PROMPTPAY_ID, { amount: numericalAmount });
+    const qrCodeImage = await qrcode.toDataURL(payload, { type: 'image/png', color: { dark: '#000000', light: '#ffffff' } });
+    
+    return res.json({ 
+      data: { 
+        paymentIntentId, 
+        amount: numericalAmount,
+        status: 'requires_confirmation',
+        qrCodeImage 
+      } 
+    });
+  } catch (error) {
+    console.error('Failed to generate PromptPay QR:', error);
+    return res.status(500).json({ error: 'Internal Server Error', message: 'Failed to generate QR code' });
+  }
 }
 
 function confirmBookingAfterPayment(req, res) {
   purgeExpiredHolds();
   const { holdToken, paymentIntentId, guestName, guestPhone } = req.body;
 
-  if (!holdToken || !paymentIntentId || !guestName) {
-    return res.status(400).json({
-      error: 'Bad Request',
-      message: 'holdToken, paymentIntentId, guestName are required',
-    });
-  }
-
-  const hold = roomHolds.find((item) => item.holdToken === holdToken);
+  const hold = db.prepare('SELECT * FROM room_holds WHERE holdToken = ?').get(holdToken);
   if (!hold) {
-    return res.status(409).json({
-      error: 'Conflict',
-      message: 'Hold token is invalid or expired',
-    });
+    return res.status(409).json({ error: 'Conflict', message: 'Hold token is invalid or expired' });
   }
 
-  const intent = paymentIntents.find((item) => item.paymentIntentId === paymentIntentId && item.holdToken === holdToken);
+  const intent = db
+    .prepare(
+      'SELECT * FROM payment_intents WHERE paymentIntentId = ? AND holdToken = ?'
+    )
+    .get(paymentIntentId, holdToken);
   if (!intent) {
-    return res.status(409).json({
-      error: 'Conflict',
-      message: 'Payment intent is invalid',
-    });
+    return res.status(409).json({ error: 'Conflict', message: 'Payment intent is invalid' });
   }
 
+  // Idempotency: already confirmed
   if (intent.status === 'succeeded') {
-    const existed = bookings.find((item) => item.paymentIntentId === paymentIntentId);
-    if (existed) {
-      return res.json({ data: existed, message: 'Booking already confirmed' });
-    }
+    const existed = db
+      .prepare('SELECT * FROM bookings WHERE paymentIntentId = ?')
+      .get(paymentIntentId);
+    if (existed) return res.json({ data: existed, message: 'Booking already confirmed' });
   }
 
   if (isRoomBookedInRange(hold.roomId, hold.checkInDate, hold.checkOutDate)) {
@@ -266,112 +238,97 @@ function confirmBookingAfterPayment(req, res) {
     });
   }
 
-  intent.status = 'succeeded';
-  intent.paidAt = new Date().toISOString();
+  const now = new Date().toISOString();
 
-  const booking = {
-    id: getNextBookingId(),
-    roomId: hold.roomId,
-    guestName: String(guestName),
-    guestPhone: guestPhone ? String(guestPhone) : null,
-    checkInDate: hold.checkInDate,
-    checkOutDate: hold.checkOutDate,
-    guestCount: hold.guestCount,
-    status: 'reserved',
-    paymentStatus: 'paid',
-    paymentIntentId,
-    holdToken,
-    createdAt: new Date().toISOString(),
-  };
+  const confirmTx = db.transaction(() => {
+    db.prepare(
+      'UPDATE payment_intents SET status = ?, paidAt = ? WHERE paymentIntentId = ?'
+    ).run('succeeded', now, paymentIntentId);
 
-  bookings.push(booking);
+    const result = db
+      .prepare(
+        `INSERT INTO bookings
+           (roomId, guestName, guestPhone, checkInDate, checkOutDate, guestCount,
+            status, paymentStatus, paymentIntentId, holdToken, createdAt)
+         VALUES (?, ?, ?, ?, ?, ?, 'reserved', 'paid', ?, ?, ?)`
+      )
+      .run(
+        hold.roomId, guestName, guestPhone || null,
+        hold.checkInDate, hold.checkOutDate, hold.guestCount,
+        paymentIntentId, holdToken, now
+      );
 
-  const holdIndex = roomHolds.findIndex((item) => item.holdToken === holdToken);
-  if (holdIndex >= 0) {
-    roomHolds.splice(holdIndex, 1);
-  }
+    db.prepare('DELETE FROM room_holds WHERE holdToken = ?').run(holdToken);
+    return result.lastInsertRowid;
+  });
 
+  const newId = confirmTx();
+  const booking = db.prepare('SELECT * FROM bookings WHERE id = ?').get(newId);
   return res.status(201).json({ data: booking });
 }
 
 function releaseHold(req, res) {
   const { holdToken } = req.body;
 
-  if (!holdToken) {
-    return res.status(400).json({ error: 'Bad Request', message: 'holdToken is required' });
-  }
-
-  const index = roomHolds.findIndex((item) => item.holdToken === holdToken);
-  if (index < 0) {
+  const hold = db.prepare('SELECT holdToken FROM room_holds WHERE holdToken = ?').get(holdToken);
+  if (!hold) {
     return res.status(404).json({ error: 'Not Found', message: 'Hold token not found' });
   }
 
-  roomHolds.splice(index, 1);
+  db.prepare('DELETE FROM room_holds WHERE holdToken = ?').run(holdToken);
   return res.json({ data: { released: true } });
 }
 
 function checkInBooking(req, res) {
   const bookingId = Number(req.params.bookingId);
-  const booking = bookings.find((item) => item.id === bookingId);
-
+  const booking = db.prepare('SELECT * FROM bookings WHERE id = ?').get(bookingId);
   if (!booking) {
     return res.status(404).json({ error: 'Not Found', message: 'Booking not found' });
   }
-
   if (booking.status !== 'reserved') {
-    return res.status(409).json({
-      error: 'Conflict',
-      message: 'Only reserved booking can check in',
-    });
+    return res.status(409).json({ error: 'Conflict', message: 'Only reserved booking can check in' });
   }
 
-  const room = rooms.find((item) => item.id === booking.roomId);
-  if (!room) {
-    return res.status(404).json({ error: 'Not Found', message: 'Room not found' });
-  }
+  const now = new Date().toISOString();
+  db.transaction(() => {
+    db.prepare('UPDATE bookings SET status = ?, checkedInAt = ? WHERE id = ?')
+      .run('checked_in', now, bookingId);
+    db.prepare('UPDATE rooms SET status = ? WHERE id = ?')
+      .run('occupied', booking.roomId);
+  })();
 
-  room.status = 'occupied';
-  booking.status = 'checked_in';
-  booking.checkedInAt = new Date().toISOString();
-
-  return res.json({ data: booking });
+  const updated = db.prepare('SELECT * FROM bookings WHERE id = ?').get(bookingId);
+  return res.json({ data: updated });
 }
 
 function checkOutBooking(req, res) {
   const bookingId = Number(req.params.bookingId);
-  const booking = bookings.find((item) => item.id === bookingId);
-
+  const booking = db.prepare('SELECT * FROM bookings WHERE id = ?').get(bookingId);
   if (!booking) {
     return res.status(404).json({ error: 'Not Found', message: 'Booking not found' });
   }
-
   if (booking.status !== 'checked_in') {
-    return res.status(409).json({
-      error: 'Conflict',
-      message: 'Only checked-in booking can check out',
-    });
+    return res.status(409).json({ error: 'Conflict', message: 'Only checked-in booking can check out' });
   }
 
-  const room = rooms.find((item) => item.id === booking.roomId);
-  if (!room) {
-    return res.status(404).json({ error: 'Not Found', message: 'Room not found' });
-  }
+  const now = new Date().toISOString();
+  db.transaction(() => {
+    db.prepare('UPDATE bookings SET status = ?, checkedOutAt = ? WHERE id = ?')
+      .run('checked_out', now, bookingId);
+    db.prepare('UPDATE rooms SET status = ? WHERE id = ?')
+      .run('available', booking.roomId);
+  })();
 
-  room.status = 'available';
-  booking.status = 'checked_out';
-  booking.checkedOutAt = new Date().toISOString();
-
-  return res.json({ data: booking });
+  const updated = db.prepare('SELECT * FROM bookings WHERE id = ?').get(bookingId);
+  return res.json({ data: updated });
 }
 
 function cancelBooking(req, res) {
   const bookingId = Number(req.params.bookingId);
-  const booking = bookings.find((item) => item.id === bookingId);
-
+  const booking = db.prepare('SELECT * FROM bookings WHERE id = ?').get(bookingId);
   if (!booking) {
     return res.status(404).json({ error: 'Not Found', message: 'Booking not found' });
   }
-
   if (booking.status === 'checked_out') {
     return res.status(409).json({
       error: 'Conflict',
@@ -379,15 +336,17 @@ function cancelBooking(req, res) {
     });
   }
 
-  booking.status = 'cancelled';
-  booking.cancelledAt = new Date().toISOString();
+  const now = new Date().toISOString();
+  db.transaction(() => {
+    db.prepare('UPDATE bookings SET status = ?, cancelledAt = ? WHERE id = ?')
+      .run('cancelled', now, bookingId);
+    if (booking.status === 'checked_in') {
+      db.prepare('UPDATE rooms SET status = ? WHERE id = ?').run('available', booking.roomId);
+    }
+  })();
 
-  const room = rooms.find((item) => item.id === booking.roomId);
-  if (room && room.status === 'occupied') {
-    room.status = 'available';
-  }
-
-  return res.json({ data: booking });
+  const updated = db.prepare('SELECT * FROM bookings WHERE id = ?').get(bookingId);
+  return res.json({ data: updated });
 }
 
 module.exports = {

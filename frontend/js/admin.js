@@ -1,4 +1,4 @@
-const API_BASE = window.MANTION_API_BASE || 'http://localhost:5000/api';
+const API_BASE = window.MANTION_API_BASE || 'http://localhost:5001/api';
 const ADMIN_TOKEN_KEY = 'mantionAdminToken';
 
 const adminLoginForm = document.getElementById('adminLoginForm');
