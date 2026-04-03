@@ -1,79 +1,73 @@
-const { rooms, getNextRoomId } = require('../data/store');
+const db = require('../db/connection');
 
 function listRooms(req, res) {
   const { status, type } = req.query;
+  const conditions = [];
+  const params = [];
 
-  const filtered = rooms.filter((room) => {
-    if (status && room.status !== status) return false;
-    if (type && room.type !== type) return false;
-    return true;
-  });
+  if (status) {
+    conditions.push('status = ?');
+    params.push(status);
+  }
+  if (type) {
+    conditions.push('type = ?');
+    params.push(type);
+  }
 
-  // แก้ตรงนี้: ส่ง filtered ออกไปตรงๆ ไม่ต้องมี { data: ... }
-  // และ map ข้อมูลให้มี field ที่ script.js ต้องการ
-  const result = filtered.map(room => ({
+  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+  const rooms = db.prepare(`SELECT * FROM rooms ${where}`).all(...params);
+
+  const result = rooms.map(room => ({
     ...room,
-    price: room.price || room.pricePerNight, // รองรับทั้งสองชื่อ
-    floor: room.floor || Math.floor(parseInt(room.roomNumber) / 100), // คำนวณชั้นจากเลขห้องถ้าไม่มี
-    name: room.name || `ห้อง ${room.roomNumber}` // สร้างชื่อห้องถ้าไม่มี
+    price: room.pricePerNight,
+    floor: Math.floor(parseInt(room.roomNumber) / 100),
+    name: `ห้อง ${room.roomNumber}`
   }));
 
   return res.json(result); 
 }
 
 function getRoomById(req, res) {
-  const roomId = Number(req.params.roomId);
-  const room = rooms.find((item) => item.id === roomId);
-
+  const room = db.prepare('SELECT * FROM rooms WHERE id = ?').get(Number(req.params.roomId));
   if (!room) {
     return res.status(404).json({ error: 'Not Found', message: 'Room not found' });
   }
-
-  // แก้ตรงนี้: ส่ง room ออกไปตรงๆ
   return res.json({
     ...room,
-    price: room.price || room.pricePerNight,
-    floor: room.floor || Math.floor(parseInt(room.roomNumber) / 100)
+    price: room.pricePerNight,
+    floor: Math.floor(parseInt(room.roomNumber) / 100),
+    name: `ห้อง ${room.roomNumber}`
   });
 }
 
 function createRoom(req, res) {
   const { roomNumber, type, pricePerNight, maxGuests } = req.body;
 
-  if (!roomNumber || !type || !pricePerNight || !maxGuests) {
-    return res.status(400).json({
-      error: 'Bad Request',
-      message: 'roomNumber, type, pricePerNight, maxGuests are required',
-    });
-  }
-
-  const duplicate = rooms.find((room) => room.roomNumber === String(roomNumber));
+  const duplicate = db.prepare('SELECT id FROM rooms WHERE roomNumber = ?').get(roomNumber);
   if (duplicate) {
-    return res.status(409).json({
-      error: 'Conflict',
-      message: 'roomNumber already exists',
-    });
+    return res.status(409).json({ error: 'Conflict', message: 'roomNumber already exists' });
   }
 
-  const newRoom = {
-    id: getNextRoomId(),
-    roomNumber: String(roomNumber),
-    type: String(type),
-    pricePerNight: Number(pricePerNight),
-    status: 'available',
-    maxGuests: Number(maxGuests),
-  };
+  const result = db
+    .prepare(
+      'INSERT INTO rooms (roomNumber, type, pricePerNight, status, maxGuests) VALUES (?, ?, ?, ?, ?)'
+    )
+    .run(roomNumber, type, pricePerNight, 'available', maxGuests);
 
-  rooms.push(newRoom);
-  // สำหรับ Create ส่ง Object กลับไปได้เลย
-  return res.status(201).json(newRoom);
+  const newRoom = db.prepare('SELECT * FROM rooms WHERE id = ?').get(result.lastInsertRowid);
+  return res.status(201).json({
+    ...newRoom,
+    price: newRoom.pricePerNight,
+    floor: Math.floor(parseInt(newRoom.roomNumber) / 100),
+    name: `ห้อง ${newRoom.roomNumber}`
+  });
 }
 
 function updateRoomStatus(req, res) {
   const roomId = Number(req.params.roomId);
   const { status } = req.body;
-  const allowedStatus = ['available', 'occupied', 'maintenance'];
 
+  const allowedStatus = ['available', 'occupied', 'maintenance'];
   if (!allowedStatus.includes(status)) {
     return res.status(400).json({
       error: 'Bad Request',
@@ -81,18 +75,20 @@ function updateRoomStatus(req, res) {
     });
   }
 
-  const roomIndex = rooms.findIndex((item) => item.id === roomId);
-  if (roomIndex === -1) {
+  const room = db.prepare('SELECT * FROM rooms WHERE id = ?').get(roomId);
+  if (!room) {
     return res.status(404).json({ error: 'Not Found', message: 'Room not found' });
   }
 
-  rooms[roomIndex].status = status;
-  return res.json(rooms[roomIndex]);
+  db.prepare('UPDATE rooms SET status = ? WHERE id = ?').run(status, roomId);
+  const updated = db.prepare('SELECT * FROM rooms WHERE id = ?').get(roomId);
+  
+  return res.json({
+    ...updated,
+    price: updated.pricePerNight,
+    floor: Math.floor(parseInt(updated.roomNumber) / 100),
+    name: `ห้อง ${updated.roomNumber}`
+  });
 }
 
-module.exports = {
-  listRooms,
-  getRoomById,
-  createRoom,
-  updateRoomStatus,
-};
+module.exports = { listRooms, getRoomById, createRoom, updateRoomStatus };

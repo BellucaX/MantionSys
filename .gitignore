@@ -7,3 +7,12 @@ backend/npm-debug.log*
 backend/yarn-debug.log*
 backend/yarn-error.log*
 backend/pnpm-debug.log*
+
+# SQLite database files
+backend/*.db
+backend/*.db-journal
+backend/*.db-wal
+backend/*.db-shm
+backend/:memory:
+backend/:memory:-shm
+backend/:memory:-wal

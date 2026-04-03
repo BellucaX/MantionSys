@@ -3,12 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="P.P Mantion — ห้องพักรายวันและรายเดือนบรรยากาศบูติก ใจกลางรามคำแหง พร้อมระบบจองออนไลน์และชำระเงิน PromptPay">
     <meta name="google-signin-client_id" content="your_google_client_id.apps.googleusercontent.com">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏨</text></svg>">
     <title>P.P Mantion | Boutique Living</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=1.6">
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;0,800;1,600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
     <div class="page-bg" aria-hidden="true"></div>
@@ -28,13 +30,14 @@
                 <a href="#location">ทำเล</a>
                 <a href="#auth">เข้าสู่ระบบ</a>
                 <a href="admin.html">Admin</a>
-                <a href="#contact">ติดต่อ</a>
+                <a href="#contact" class="nav-cta">ติดต่อ</a>
             </nav>
         </div>
     </header>
 
     <main id="top">
-        <section class="hero section-reveal" data-reveal="lift">
+        <!-- ═══════════════════════════════ HERO ═══════════════════════════════ -->
+        <section class="hero section-reveal section-reveal--hero" data-reveal="lift">
             <div class="container hero-grid">
                 <div class="hero-copy">
                     <p class="kicker">BOUTIQUE CITY STAY</p>
@@ -48,58 +51,133 @@
                         <a class="btn btn-primary" href="#rooms">ดูประเภทห้อง</a>
                         <a class="btn btn-ghost" href="#contact">สอบถามห้องว่าง</a>
                     </div>
+                    <div class="hero-trust">
+                        <span>✦ จอง 24 ชม.</span>
+                        <span>✦ ชำระ PromptPay</span>
+                        <span>✦ ล็อคก่อน 10 นาที</span>
+                    </div>
                 </div>
 
                 <div class="hero-card">
-                    <h3>Quick Info</h3>
+                    <p class="hero-card-label">Quick Info</p>
                     <ul>
-                        <li><span>เช็คอิน</span><strong>14:00</strong></li>
-                        <li><span>เช็คเอาต์</span><strong>12:00</strong></li>
-                        <li><span>แผนกต้อนรับ</span><strong>24 ชั่วโมง</strong></li>
-                        <li><span>ระยะทาง MRT</span><strong>10 นาที</strong></li>
+                        <li>
+                            <span class="info-icon">⏰</span>
+                            <span>เช็คอิน</span>
+                            <strong>14:00</strong>
+                        </li>
+                        <li>
+                            <span class="info-icon">🏁</span>
+                            <span>เช็คเอาต์</span>
+                            <strong>12:00</strong>
+                        </li>
+                        <li>
+                            <span class="info-icon">🛎️</span>
+                            <span>แผนกต้อนรับ</span>
+                            <strong>24 ชั่วโมง</strong>
+                        </li>
+                        <li>
+                            <span class="info-icon">🚇</span>
+                            <span>ระยะทาง MRT</span>
+                            <strong>10 นาที</strong>
+                        </li>
                     </ul>
+                    <a class="btn btn-primary hero-card-btn" href="#reserve">จองเลย</a>
                 </div>
             </div>
         </section>
 
+        <!-- ══════════════════════════════ ROOMS ══════════════════════════════ -->
         <section id="rooms" class="section section-reveal" data-reveal="fade-left">
             <div class="container">
                 <div class="section-head">
-                    <p class="kicker">ROOMS</p>
-                    <h2>ประเภทห้องที่ออกแบบให้ “อยู่สบาย”</h2>
+                    <p class="kicker">OUR ROOMS</p>
+                    <h2>ประเภทห้องที่ออกแบบให้ <em>"อยู่สบาย"</em></h2>
+                    <p class="section-sub">เลือกห้องที่ตรงกับไลฟ์สไตล์ของคุณ ตั้งแต่พักสั้นรายวันถึงรายเดือน</p>
                 </div>
 
                 <div class="card-grid stagger-list">
                     <article class="room-card">
-                        <p class="room-tag">Standard</p>
+                        <div class="room-card-header">
+                            <div class="room-icon">🛏️</div>
+                            <p class="room-tag">Standard</p>
+                        </div>
                         <h3>ห้องสแตนดาร์ด</h3>
                         <p>เหมาะกับการพักระยะสั้น เน้นเรียบง่ายและใช้งานสะดวก</p>
-                        <div class="price">฿900 / คืน</div>
+                        <ul class="room-features">
+                            <li>Wi-Fi ความเร็วสูง</li>
+                            <li>ห้องน้ำในตัว</li>
+                            <li>แอร์ + TV</li>
+                        </ul>
+                        <div class="room-card-footer">
+                            <div class="price">฿900 <small>/ คืน</small></div>
+                            <a class="btn btn-ghost btn-sm" href="#reserve">เลือกห้องนี้</a>
+                        </div>
                     </article>
 
-                    <article class="room-card">
-                        <p class="room-tag">Deluxe</p>
+                    <article class="room-card room-card--featured">
+                        <div class="room-badge">ยอดนิยม</div>
+                        <div class="room-card-header">
+                            <div class="room-icon">🛋️</div>
+                            <p class="room-tag">Deluxe</p>
+                        </div>
                         <h3>ห้องดีลักซ์</h3>
                         <p>พื้นที่มากขึ้น เฟอร์นิเจอร์ครบ ลงตัวทั้งงานและการพักผ่อน</p>
-                        <div class="price">฿1,400 / คืน</div>
+                        <ul class="room-features">
+                            <li>Wi-Fi ความเร็วสูง</li>
+                            <li>ห้องน้ำใหม่ + ฝักบัว</li>
+                            <li>โต๊ะทำงาน + มินิบาร์</li>
+                        </ul>
+                        <div class="room-card-footer">
+                            <div class="price">฿1,400 <small>/ คืน</small></div>
+                            <a class="btn btn-primary btn-sm" href="#reserve">เลือกห้องนี้</a>
+                        </div>
                     </article>
 
                     <article class="room-card">
-                        <p class="room-tag">Family</p>
+                        <div class="room-card-header">
+                            <div class="room-icon">🏡</div>
+                            <p class="room-tag">Family</p>
+                        </div>
                         <h3>ห้องแฟมิลี่</h3>
                         <p>รองรับครอบครัวขนาดเล็ก มีพื้นที่ใช้งานกว้างเป็นพิเศษ</p>
-                        <div class="price">฿2,200 / คืน</div>
+                        <ul class="room-features">
+                            <li>เตียงคู่ + โซฟาเสริม</li>
+                            <li>ครัวเล็ก + ตู้เย็น</li>
+                            <li>พื้นที่นั่งเล่นแยก</li>
+                        </ul>
+                        <div class="room-card-footer">
+                            <div class="price">฿2,200 <small>/ คืน</small></div>
+                            <a class="btn btn-ghost btn-sm" href="#reserve">เลือกห้องนี้</a>
+                        </div>
                     </article>
                 </div>
             </div>
         </section>
 
+        <!-- ════════════════════════════ BOOKING ════════════════════════════ -->
         <section id="reserve" class="section section-reveal" data-reveal="zoom-in">
             <div class="container reserve-wrap">
-                <div>
+                <div class="reserve-copy">
                     <p class="kicker">BOOKING FLOW</p>
                     <h2>ยืนยันเลือกห้องก่อนเข้าสู่การชำระเงิน</h2>
                     <p class="reserve-note">เมื่อกดตกลง ระบบจะตรวจสอบห้องว่างแบบ real-time และล็อกห้องชั่วคราว 10 นาที ก่อนสร้างขั้นตอนชำระเงิน</p>
+                    <div class="reserve-steps">
+                        <div class="reserve-step">
+                            <span class="step-num">1</span>
+                            <span>กรอกข้อมูล</span>
+                        </div>
+                        <div class="step-arrow">→</div>
+                        <div class="reserve-step">
+                            <span class="step-num">2</span>
+                            <span>ตรวจสอบ & ล็อคห้อง</span>
+                        </div>
+                        <div class="step-arrow">→</div>
+                        <div class="reserve-step">
+                            <span class="step-num">3</span>
+                            <span>ชำระ PromptPay</span>
+                        </div>
+                    </div>
                 </div>
 
                 <form id="reserveForm" class="reserve-card">
@@ -133,49 +211,102 @@
                         </label>
                     </div>
 
-                    <button class="btn btn-primary" type="submit">ตกลงเลือกห้อง</button>
+                    <button class="btn btn-primary btn-full" type="submit">ตกลงเลือกห้อง</button>
                     <div id="reserveStatus" class="reserve-status">ยังไม่ได้ยืนยันห้อง</div>
                 </form>
             </div>
         </section>
 
+        <!-- ══════════════════════════ AMENITIES ══════════════════════════ -->
         <section id="amenities" class="section section-reveal" data-reveal="fade-right">
-            <div class="container amenities-wrap">
-                <div>
+            <div class="container">
+                <div class="section-head section-head--center">
                     <p class="kicker">AMENITIES</p>
                     <h2>สิ่งอำนวยความสะดวกครบในที่เดียว</h2>
+                    <p class="section-sub">ออกแบบมาเพื่อการพักผ่อนที่สะดวกสบายทุกวัน</p>
                 </div>
                 <div class="amenity-grid stagger-list">
-                    <div class="amenity-item">ระบบรักษาความปลอดภัย 24 ชม.</div>
-                    <div class="amenity-item">ลิฟต์และที่จอดรถ</div>
-                    <div class="amenity-item">บริการทำความสะอาด</div>
-                    <div class="amenity-item">พื้นที่ส่วนกลางพร้อม Wi-Fi</div>
+                    <div class="amenity-item">
+                        <span class="amenity-icon">🔐</span>
+                        <div>
+                            <strong>ระบบรักษาความปลอดภัย</strong>
+                            <p>กล้องวงจรปิด + การ์ดประตู 24 ชม.</p>
+                        </div>
+                    </div>
+                    <div class="amenity-item">
+                        <span class="amenity-icon">🚗</span>
+                        <div>
+                            <strong>ลิฟต์และที่จอดรถ</strong>
+                            <p>ที่จอดรถในตึก รองรับทุกขนาดรถ</p>
+                        </div>
+                    </div>
+                    <div class="amenity-item">
+                        <span class="amenity-icon">🧹</span>
+                        <div>
+                            <strong>บริการทำความสะอาด</strong>
+                            <p>ทำความสะอาดห้องทุกสัปดาห์</p>
+                        </div>
+                    </div>
+                    <div class="amenity-item">
+                        <span class="amenity-icon">📶</span>
+                        <div>
+                            <strong>พื้นที่ส่วนกลาง + Wi-Fi</strong>
+                            <p>อินเทอร์เน็ตความเร็วสูงทั่วอาคาร</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>
 
+        <!-- ═══════════════════════════ LOCATION ═══════════════════════════ -->
         <section id="location" class="section section-reveal" data-reveal="fade-left">
-            <div class="container location-box">
-                <div>
-                    <p class="kicker">LOCATION</p>
-                    <h2>เดินทางสะดวก ใกล้มหาวิทยาลัยและแหล่งของกิน</h2>
-                    <p>ทำเลรามคำแหง เหมาะสำหรับนักศึกษา คนทำงาน และผู้ที่ต้องการความสะดวกในการเดินทางทุกวัน</p>
-                </div>
-                <div class="distance-list">
-                    <div><span>มหาวิทยาลัยรามคำแหง</span><strong>1.2 km</strong></div>
-                    <div><span>Airport Rail Link</span><strong>3.8 km</strong></div>
-                    <div><span>The Mall บางกะปิ</span><strong>2.1 km</strong></div>
+            <div class="container">
+                <div class="location-box">
+                    <div class="location-copy">
+                        <p class="kicker">LOCATION</p>
+                        <h2>เดินทางสะดวก ใกล้มหาวิทยาลัยและแหล่งของกิน</h2>
+                        <p>ทำเลรามคำแหง เหมาะสำหรับนักศึกษา คนทำงาน และผู้ที่ต้องการความสะดวกในการเดินทางทุกวัน</p>
+                        <a class="btn btn-ghost" href="#contact" style="margin-top:20px;display:inline-flex;">📍 ดูแผนที่</a>
+                    </div>
+                    <div class="distance-list">
+                        <div class="distance-item">
+                            <span class="dist-icon">🎓</span>
+                            <span>มหาวิทยาลัยรามคำแหง</span>
+                            <strong>1.2 km</strong>
+                        </div>
+                        <div class="distance-item">
+                            <span class="dist-icon">✈️</span>
+                            <span>Airport Rail Link</span>
+                            <strong>3.8 km</strong>
+                        </div>
+                        <div class="distance-item">
+                            <span class="dist-icon">🛍️</span>
+                            <span>The Mall บางกะปิ</span>
+                            <strong>2.1 km</strong>
+                        </div>
+                        <div class="distance-item">
+                            <span class="dist-icon">🍜</span>
+                            <span>ย่านอาหารรามคำแหง 24</span>
+                            <strong>0.4 km</strong>
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>
 
+        <!-- ════════════════════════════ AUTH ════════════════════════════ -->
         <section id="auth" class="section section-reveal" data-reveal="fade-right">
             <div class="container auth-wrap">
                 <div class="auth-copy">
                     <p class="kicker">ACCOUNT</p>
-                    <h2>สมัครสมาชิก, เข้าสู่ระบบ และ Quick Login</h2>
-                    <p>ระบบสมาชิกพร้อมใช้งานแล้ว รองรับการสมัครด้วยอีเมล, เข้าสู่ระบบปกติ และ Quick Login ด้วย Google</p>
+                    <h2>สมัครสมาชิก & เข้าสู่ระบบ</h2>
+                    <p>ระบบสมาชิกพร้อมใช้งานแล้ว รองรับการสมัครด้วยอีเมล เข้าสู่ระบบปกติ และ Quick Login ด้วย Google</p>
                     <div id="authStatus" class="auth-status">ยังไม่ได้เข้าสู่ระบบ</div>
+                    <div class="auth-benefits">
+                        <div class="auth-benefit">✓ ดูประวัติการจองย้อนหลัง</div>
+                        <div class="auth-benefit">✓ บันทึกข้อมูลแบบฟอร์มอัตโนมัติ</div>
+                        <div class="auth-benefit">✓ รับแจ้งเตือนสถานะการจอง</div>
+                    </div>
                 </div>
 
                 <div class="auth-forms">
@@ -193,7 +324,7 @@
                         <label>ยืนยันรหัสผ่าน
                             <input name="confirmPassword" type="password" required minlength="6" placeholder="พิมพ์รหัสผ่านอีกครั้ง">
                         </label>
-                        <button class="btn btn-primary" type="submit">สมัครสมาชิก</button>
+                        <button class="btn btn-primary btn-full" type="submit">สมัครสมาชิก</button>
                     </form>
 
                     <form id="loginForm" class="auth-card">
@@ -204,7 +335,7 @@
                         <label>รหัสผ่าน
                             <input name="password" type="password" required placeholder="รหัสผ่าน">
                         </label>
-                        <button class="btn btn-primary" type="submit">เข้าสู่ระบบ</button>
+                        <button class="btn btn-primary btn-full" type="submit">เข้าสู่ระบบ</button>
 
                         <div class="google-login">
                             <p>Quick Login by Google</p>
@@ -216,16 +347,73 @@
         </section>
     </main>
 
+    <!-- ════════════════════════════ FOOTER ════════════════════════════ -->
     <footer id="contact" class="site-footer section-reveal" data-reveal="zoom-in">
-        <div class="container footer-wrap">
-            <div>
-                <h3>P.P Mantion</h3>
-                <p>โทร: 08X-XXX-XXXX</p>
-                <p>Line: @ppmantion</p>
+        <div class="container footer-inner">
+            <div class="footer-brand">
+                <div class="footer-logo">
+                    <span class="brand-mark">PP</span>
+                    <span class="brand-text">Mantion</span>
+                </div>
+                <p class="footer-tagline">Boutique Living · รามคำแหง · กรุงเทพฯ</p>
             </div>
-            <a class="btn btn-primary" href="#top">กลับขึ้นด้านบน</a>
+
+            <div class="footer-cols">
+                <div class="footer-col">
+                    <h4>ติดต่อเรา</h4>
+                    <p>📞 08X-XXX-XXXX</p>
+                    <p>💬 Line: @ppmantion</p>
+                    <p>📧 hello@ppmantion.com</p>
+                </div>
+                <div class="footer-col">
+                    <h4>เวลาทำการ</h4>
+                    <p>แผนกต้อนรับ 24 ชม.</p>
+                    <p>เช็คอิน: 14:00 น.</p>
+                    <p>เช็คเอาต์: 12:00 น.</p>
+                </div>
+                <div class="footer-col">
+                    <h4>ลิงก์ด่วน</h4>
+                    <a href="#rooms">ห้องพัก</a>
+                    <a href="#reserve">จองห้อง</a>
+                    <a href="#amenities">สิ่งอำนวยความสะดวก</a>
+                    <a href="admin.html">Admin</a>
+                </div>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <div class="container footer-bottom-inner">
+                <p>© 2025 P.P Mantion. All rights reserved.</p>
+                <a class="btn btn-ghost btn-sm" href="#top">↑ กลับด้านบน</a>
+            </div>
         </div>
     </footer>
+
+    <div id="paymentOverlay" class="verify-overlay" hidden>
+        <div class="verify-box payment-box">
+            <h3>สแกนเพื่อชำระเงิน (จำลอง)</h3>
+            <div id="countdown" class="countdown-text">
+                กรุณาชำระเงินภายใน <span id="timer">10:00</span>
+            </div>
+            <p>กรุณาสแกน QR Code ด้านล่างด้วยแอปพลิเคชันธนาคารของคุณ เพื่อชำระเงินจำนวน <strong id="paymentAmountDisplay">0</strong> บาท</p>
+            <div id="qrCodeContainer" class="qr-container">
+                <img id="qrCodeImage" src="" alt="PromptPay QR Code">
+            </div>
+
+            <div class="slip-upload-section">
+                <label for="slipInput">อัปโหลดหลักฐานการโอนเงิน (สลิป):</label>
+                <input type="file" id="slipInput" accept="image/*">
+                <div id="slipPreview" hidden>
+                    <img id="previewImg" src="" alt="ภาพสลิปโอนเงิน">
+                </div>
+            </div>
+
+            <p class="payment-note">เมื่อโอนเงินและแนบสลิปแล้ว กรุณากดปุ่มเพื่อยืนยัน</p>
+            <div class="payment-actions">
+                <button id="btnMockPaymentSuccess" class="btn btn-primary" type="button" disabled>ยืนยันและส่งหลักฐาน</button>
+                <button id="btnCancelPayment" class="btn btn-ghost" type="button">ยกเลิก</button>
+            </div>
+        </div>
+    </div>
 
     <div id="verifyOverlay" class="verify-overlay" hidden>
         <div class="verify-box">
@@ -236,6 +424,6 @@
     </div>
 
     <script src="https://accounts.google.com/gsi/client" async defer></script>
-    <script src="script.js?v=1.6"></script>
+    <script src="js/script.js"></script>
 </body>
 </html>

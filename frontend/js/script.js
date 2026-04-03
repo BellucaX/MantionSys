@@ -8,6 +8,15 @@ const reserveStatus = document.getElementById('reserveStatus');
 const verifyOverlay = document.getElementById('verifyOverlay');
 const verifyTitle = document.getElementById('verifyTitle');
 const verifyText = document.getElementById('verifyText');
+const paymentOverlay = document.getElementById('paymentOverlay');
+const paymentAmountDisplay = document.getElementById('paymentAmountDisplay');
+const qrCodeImage = document.getElementById('qrCodeImage');
+const btnMockPaymentSuccess = document.getElementById('btnMockPaymentSuccess');
+const btnCancelPayment = document.getElementById('btnCancelPayment');
+const timerDisplay = document.getElementById('timer');
+const slipInput = document.getElementById('slipInput');
+const slipPreview = document.getElementById('slipPreview');
+const previewImg = document.getElementById('previewImg');
 
 const REQUEST_TIMEOUT_MS = 12000;
 
@@ -22,7 +31,7 @@ if (menuToggle && siteNav) {
 }
 
 const revealItems = document.querySelectorAll('.section-reveal');
-const API_BASE = window.MANTION_API_BASE || 'http://localhost:5000/api';
+const API_BASE = window.MANTION_API_BASE || 'http://localhost:5001/api';
 
 function setAuthStatus(message) {
 	if (authStatus) {
@@ -247,9 +256,15 @@ function initGoogleQuickLogin() {
 	const clientId = metaClientId ? metaClientId.content : '';
 	const googleBtn = document.getElementById('googleBtn');
 
-	if (!window.google || !googleBtn) return;
+	if (!window.google || !googleBtn) {
+		// แสดง placeholder เมื่อ Google SDK ยังโหลดไม่สำเร็จ
+		if (googleBtn && (!clientId || clientId.includes('your_google_client_id'))) {
+			googleBtn.innerHTML = '<span class="google-placeholder-text">⚙️ ตั้งค่า Google Client ID ก่อนใช้งาน Quick Login</span>';
+		}
+		return;
+	}
 	if (!clientId || clientId.includes('your_google_client_id')) {
-		googleBtn.textContent = 'ตั้งค่า google-signin-client_id ก่อนใช้งาน';
+		googleBtn.innerHTML = '<span class="google-placeholder-text">⚙️ ตั้งค่า Google Client ID ก่อนใช้งาน Quick Login</span>';
 		return;
 	}
 

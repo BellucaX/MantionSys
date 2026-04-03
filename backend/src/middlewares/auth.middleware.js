@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
-const { users } = require('../data/store');
+const db = require('../db/connection');
 const { JWT_SECRET } = require('../config/env');
+
 
 function requireAuth(req, res, next) {
   const authHeader = req.headers.authorization || '';
@@ -15,7 +16,7 @@ function requireAuth(req, res, next) {
 
   try {
     const payload = jwt.verify(token, JWT_SECRET);
-    const user = users.find((item) => item.id === Number(payload.sub));
+    const user = db.prepare('SELECT id, email, name, provider FROM users WHERE id = ?').get(Number(payload.sub));
 
     if (!user) {
       return res.status(401).json({

@@ -1,273 +1,123 @@
-# Mantion Project Structure
+# MantionSys (P.P Mantion System)
 
-จัดโครงสร้างใหม่ให้แยก Frontend, Backend และ API ชัดเจน
+ระบบบริหารจัดการห้องพัก `MantionSys` ถูกออกแบบและพัฒนาใหม่ทั้งหมดเพื่อให้บริการจองห้องพักทั้งในรูปแบบรายวันและรายเดือน (Boutique Living) ระบบนี้ทำงานแบบแยกส่วน (Decoupled Architecture) บนสถาปัตยกรรม 3-Tier เพื่อให้ทุกส่วนสามารถพัฒนา ทดสอบ และปรับปรุงได้อย่างเป็นเอกเทศ
 
-## Project Layout
+เอกสารนี้ตั้งใจเขียนขึ้นเพื่อให้นักพัฒนาและผู้ที่สนใจสามารถเข้ามาศึกษา และทำความเข้าใจสถาปัตยกรรมแบบ Layer ของโปรเจกต์ได้อย่างง่ายดาย
+
+---
+
+## 🏗️ Project Architecture & Layers
+
+โปรเจกต์นี้แบ่งโครงสร้างหลักออกเป็น 5 Layer ที่ทำงานเชื่อมโยงกันอย่างเป็นระบบ โครงสร้างไฟล์โดยรวมจะเป็นดังนี้:
 
 ```text
-Mantion/
-  frontend/
-    index.html
-    admin.html
-    admin.js
-    style.css
-    script.js
-
-  backend/
-    .env.example
-    package.json
-    package-lock.json
-    src/
-      app.js
-      server.js
-      config/
-        env.js
-      data/
-        store.js
-      controllers/
-        admin.controller.js
-        api.controller.js
-        auth.controller.js
-        bookings.controller.js
-        health.controller.js
-        rooms.controller.js
-      middlewares/
-        auth.middleware.js
-        error.middleware.js
-        not-found.middleware.js
-        request-logger.middleware.js
-      routes/
-        admin.routes.js
-        api.routes.js
-        auth.routes.js
-        bookings.routes.js
-        rooms.routes.js
+MantionSys/
+  ├── frontend/         # 1. UI / Frontend Layer
+  ├── backend/
+  │   ├── src/
+  │   │   ├── routes/       # 2. API / Routing Layer
+  │   │   ├── controllers/  # 3. Backend / Business Logic Layer
+  │   │   ├── middlewares/  # 3.1 Security & Request Parsing Layer
+  │   │   ├── db/           # 4. Database / Persistence Layer
+  │   │   ├── server.js     # 5. Server / Entry Point Layer
+  │   │   └── app.js
+  │   └── prisma/           # ส่วนเสริมสำหรับการรองรับ ORM ในอนาคต
+  └── docs/                 # แหล่งรวมเอกสารเพิ่มเติม
 ```
 
-## Responsibilities
+---
 
-- `frontend/`:
-  - เก็บไฟล์หน้าเว็บแบบ static
-  - ใช้สำหรับ UI/UX ฝั่งผู้ใช้งาน
+### 1. Frontend Layer (ฝั่งผู้ใช้งานและ Admin)
+หน้าบ้านสำหรับสื่อสารกับผู้ใช้งานโดยรันเป็น Static Site ไม่ต้องใช้ Node.js รัน (อาจใช้ Nginx หรือ Live Server ธรรมดาก็ได้)
 
-- `backend/src/server.js`:
-  - จุดเริ่มต้นของเซิร์ฟเวอร์ (entry point)
-  - เรียกใช้งาน app และเปิดพอร์ต
+* **ตำแหน่งไฟล์:** `frontend/`
+* **รายละเอียด:**
+    * **`index.html`**: หน้าเว็บไซต์หลัก รวบรวมฟังก์ชันการจองห้องพัก, ดูข้อมูลโรงแรม เกรดพรีเมียม
+    * **`payment.html`**: ทำหน้าที่รับข้อมูลจำลองการชำระเงินผ่าน PromptPay และการอัปโหลดสลิป
+    * **`admin.html`**: แดชบอร์ดสำหรับผู้ดูแลระบบ ดูสถิติ และการยืนยันการจอง
+    * **`css/`** และ **`js/`**: ไฟล์ Stylesheet (CSS) และไฟล์ JavaScript (JS) ที่ควบคุมการเชื่อมต่อ API ไปที่ส่วนหลังบ้าน
 
-- `backend/src/app.js`:
-  - รวม middleware และ map routes
-  - แยกจาก server เพื่อให้ง่ายต่อการทดสอบ/ขยายระบบ
+---
 
-- `backend/src/config/`:
-  - จัดการค่า environment เช่นพอร์ต
+### 2. API / Routing Layer (ด่านหน้ารับ HTTP Request)
+ชั้นนี้ทำหน้าที่แปลง URL / Path จากโลกภายนอก (Frontend) เข้ามายังโปรแกรมของเรา
 
-- `backend/src/controllers/`:
-  - รวม logic ของ endpoint แต่ละกลุ่ม
+* **ตำแหน่งไฟล์:** `backend/src/routes/`
+* **รายละเอียด:** 
+  ในนี้จะพบไฟล์ที่มีนามสกุล `.routes.js` ซ่อนอยู่ เช่น `auth.routes.js`, `rooms.routes.js`, `bookings.routes.js` ชั้นนี้ทำตัวเป็น **"ป้ายบอกทาง"** ว่าเมื่อ Frontend ร้องขอด้วยหน้า URL หนึ่งๆ จะต้องไปเรียกฟังก์ชันไหนมาดึงข้อมูล 
+  *ไม่มีการคำนวณข้อมูลหรือการแก้ไขฐานข้อมูลใน Layer นี้โดยเด็ดขาด*
 
-- `backend/src/data/`:
-  - เก็บข้อมูลเริ่มต้นของระบบ (ตอนนี้เป็น in-memory)
+---
 
-- `backend/src/routes/`:
-  - ประกาศ URL path และจับคู่ไป controller
+### 3. Backend (Business Logic & Controllers Layer)
+ส่วนมันสมองของระบบ กฎเกณฑ์และตรรกะทั้งหมดจะถูกกำหนดในชั้นนี้
 
-- `backend/src/middlewares/`:
-  - รวม middleware ส่วนกลาง เช่น logger, 404, error handler
+* **ตำแหน่งไฟล์:** `backend/src/controllers/`
+* **รายละเอียด:**
+  จะรับช่วงต่อมาจาก Routing เพื่อทำลอจิก เช่น "การจองห้องสำเร็จต้องทำอะไรบ้าง?" "เช็คห้องว่างยังไง?" "รหัสผ่านถูกต้องไหม?"
+  *ฟังก์ชันที่นี่จะดึงข้อมูลผ่านฝั่ง Database ก่อนจะประมวลผลและบรรจุส่งคืน (Return) ไปที่ Frontend ว่า `status 200 (สำเร็จ)` หรือ `status 400 (ล้มเหลว)`*
 
-## API Endpoints
+* **3.1 Middlewares (`backend/src/middlewares/`)**:  
+  เพื่อนบ้านของ Controller ที่คอยสกัดจับก่อนข้อมูลเข้าไปประมวลผล เช่น เช็คว่าคนนี้มี Token เข้าสู่ระบบมาแล้วหรือยัง (`auth.middleware.js`) ก่อนจะปล่อยผ่านเข้าไปหา Controllers
 
-- `GET /` -> สถานะ backend
-- `GET /api/health` -> health check ของ API
-- `GET /api/hello` -> ตัวอย่าง endpoint
+---
 
-### Rooms
+### 4. DB & Data Layer (ชั้นจัดเก็บข้อมูล)
+เก็บรักษาข้อมูลที่สำคัญไม่ให้สูญหายหลังจากการใช้งาน
 
-- `GET /api/rooms` -> ดูรายการห้องทั้งหมด
-- `GET /api/rooms?status=available&type=deluxe` -> filter ห้อง
-- `GET /api/rooms/:roomId` -> ดูรายละเอียดห้อง
-- `POST /api/rooms` -> เพิ่มห้องใหม่
-- `PATCH /api/rooms/:roomId/status` -> เปลี่ยนสถานะห้อง (`available`, `occupied`, `maintenance`)
+* **ตำแหน่งไฟล์:** `backend/src/db/` (และ `backend/prisma/`)
+* **รายละเอียด:**
+  ในเวอร์ชันนี้เราจัดการเชื่อมต่อฐานข้อมูลในรูปแบบ **SQLite** เป็นหัวใจหลักเพื่อความรวดเร็วและสามารถย้ายสถาปัตยกรรม (Portability) ได้ทันที 
+  * `connection.js`: ประกาศตัวเชื่อมไปยังไฟล์ `database.db`
+  * `schema.sql`: โครงสร้างตาราง (Tables) ทั้งหมดประกอบด้วย (Users, Rooms, Bookings)
+  * `migrate.js` และ `seeds.js`: นำไว้ใช้สำหรับสร้างตารางและรันข้อมูลจำลองเริ่มต้น
 
-ตัวอย่าง `POST /api/rooms`
+> [!NOTE]
+> ปัจจุบันโปรเจกต์มีโครงสร้างของ `Prisma ORM` วางเตรียมเอาไว้ที่โฟลเดอร์ `backend/prisma` ด้วย ซึ่งเป็นทางเลือกสำหรับการสเกลระบบไปใช้ฐานข้อมูลใหญ่ขึ้นในอนาคต
 
-```json
-{
-  "roomNumber": "301",
-  "type": "suite",
-  "pricePerNight": 3200,
-  "maxGuests": 2
-}
-```
+---
 
-### Bookings
+### 5. Server & Application Entry Layer (จุดสตาร์ทอัปเซิร์ฟเวอร์)
+ชั้นสุดท้ายที่รวมทุกชั้น (Layer) เข้ามาด้วยกันให้เริ่มทำงานเพื่อเปิดรับ Request จากภายนอก
 
-- `GET /api/bookings` -> ดูรายการจองทั้งหมด
-- `GET /api/bookings/:bookingId` -> ดูรายละเอียดการจอง
-- `POST /api/bookings` -> สร้างการจอง
-- `POST /api/bookings/precheck` -> ตรวจห้องว่างและล็อกห้องชั่วคราว (hold)
-- `POST /api/bookings/payment-intent` -> สร้าง payment intent จำลองจาก hold token
-- `POST /api/bookings/confirm` -> ยืนยันการจองหลังชำระเงินสำเร็จ
-- `POST /api/bookings/release-hold` -> ปล่อย hold กรณียกเลิกก่อนชำระเงิน
-- `PATCH /api/bookings/:bookingId/check-in` -> เช็คอิน
-- `PATCH /api/bookings/:bookingId/check-out` -> เช็คเอาต์
-- `PATCH /api/bookings/:bookingId/cancel` -> ยกเลิกการจอง
+* **ตำแหน่งไฟล์:** `backend/src/server.js` และ `backend/src/app.js`
+* **รายละเอียด:**
+  * **`app.js`**: ตัวผูกรวมความสามารถต่างๆ (Routes, Middlewares) ไว้เป็น Application เดี่ยวๆ สามารถนำไฟล์นี้ไปใช้ทำงานสำหรับ **Automated Testing** ได้โดยสะดวก
+  * **`server.js`**: เป็นไฟล์รันไทม์เท่านั้น ผูกเอา `app` ไปวิ่งบน Port ที่กำหนด (ตัวอย่างเช่น Port `5001` หรือ `5000`)
 
-ตัวอย่าง `POST /api/bookings`
+---
 
-```json
-{
-  "roomId": 1,
-  "guestName": "Somchai",
-  "guestPhone": "0812345678",
-  "checkInDate": "2026-03-24",
-  "checkOutDate": "2026-03-26",
-  "guestCount": 2
-}
-```
+## 🚀 Getting Started (วิธีการพารันขึ้นทำงาน)
 
-ตัวอย่าง `POST /api/bookings/precheck`
-
-```json
-{
-  "roomId": 1,
-  "checkInDate": "2026-04-01",
-  "checkOutDate": "2026-04-03",
-  "guestCount": 2
-}
-```
-
-ตัวอย่าง `POST /api/bookings/payment-intent`
-
-```json
-{
-  "holdToken": "hold_xxxxx",
-  "amount": 1500
-}
-```
-
-ตัวอย่าง `POST /api/bookings/confirm`
-
-```json
-{
-  "holdToken": "hold_xxxxx",
-  "paymentIntentId": "pi_xxxxx",
-  "guestName": "Somchai",
-  "guestPhone": "0812345678"
-}
-```
-
-### Authentication
-
-- `POST /api/auth/register` -> สมัครสมาชิกด้วยอีเมล/รหัสผ่าน
-- `POST /api/auth/login` -> เข้าสู่ระบบด้วยอีเมล/รหัสผ่าน
-- `POST /api/auth/google` -> Quick Login ด้วย Google ID Token
-- `GET /api/auth/me` -> ข้อมูลผู้ใช้ปัจจุบัน (ต้องส่ง Bearer token)
-
-ตัวอย่าง `POST /api/auth/register`
-
-```json
-{
-  "name": "Demo User",
-  "email": "demo@example.com",
-  "password": "secret123"
-}
-```
-
-ตัวอย่าง `POST /api/auth/login`
-
-```json
-{
-  "email": "demo@example.com",
-  "password": "secret123"
-}
-```
-
-### Admin
-
-- `POST /api/admin/login` -> เข้าสู่ระบบผู้ดูแลด้วย passcode
-- `GET /api/admin/dashboard` -> ดูภาพรวมทั้งตึก (ต้องส่ง Bearer admin token)
-
-ตัวอย่าง `POST /api/admin/login`
-
-```json
-{
-  "passcode": " "
-}
-```
-
-## Getting Started
-
-### 1) Run Backend
-
+### 1) การเชื่อมต่อ Database & ฝั่ง Backend
 ```bash
 cd backend
-cp .env.example .env
 npm install
-npm run dev
+cp .env.example .env
+npm run setup:db   # สร้างตาราง SQLite และ Seed ข้อมูลเริ่มต้น
+npm run dev        # เริ่มการทำงานของ Server (ระบบจะเปิดที่ http://localhost:5001)
 ```
 
-Backend จะรันที่ `http://localhost:5000` (หรือพอร์ตจาก `.env`)
+> **Environment Variables สำคัญใน `.env`**
+> * `PORT`=5001
+> * `JWT_SECRET`=change-this-to-super-secret
+> * `ADMIN_PASSCODE`=supersecretpasscode
 
-#### Backend Env (Auth)
-
-ในไฟล์ `.env` ของ backend ให้ตั้งค่าดังนี้
-
-```env
-PORT=5000
-JWT_SECRET=change_this_secret
-GOOGLE_CLIENT_ID=your_google_client_id.apps.googleusercontent.com
-ADMIN_PASSCODE=change_this_admin_passcode
-```
-
-### 2) Run Frontend (Static)
-
-เลือกวิธีใดวิธีหนึ่ง
-
-```bash
-# Python 3
-cd frontend
-python3 -m http.server 8080
-```
-
-แล้วเปิด `http://localhost:8080`
-
-#### Frontend Google Quick Login
-
-ในไฟล์ `frontend/index.html` มี meta ชื่อ `google-signin-client_id` อยู่แล้ว
-ให้แทนค่าเป็น Google Client ID ตัวเดียวกับ backend
-
-### 3) Admin Dashboard
-
-เปิดหน้า `frontend/admin.html` ผ่าน static server เดิม เช่น
-
+### 2) การแสดงผลฝั่ง Frontend
+โปรเจกต์ไม่ได้บังคับใช้งานไลบรารีใดสำหรับรันโปรเจกต์ สามารถใช้ Live Server Plugin ของ VS Code เพื่อจำลองเป็น Web Server ได้เลย หรือสามารถรันผ่านคำสั่ง Terminal:
 ```bash
 cd frontend
 python3 -m http.server 8080
+# หรือ
+npx serve .
 ```
 
-แล้วเข้า `http://localhost:8080/admin.html` และกรอก `ADMIN_PASSCODE`
+* เข้าชมหน้าบ้านได้ที่ `http://localhost:8080`
+* เข้าชมระบบแอดมินได้ที่ `http://localhost:8080/admin.html` (ใช้ Passcode ที่ตั้งใน `.env`)
 
-### 4) Run with Docker
+---
 
-ถ้าต้องการรันทั้ง frontend + backend ด้วย Docker:
+## 💡 เรียนรู้เพิ่มเติม
 
-```bash
-docker compose up --build
-```
-
-Endpoints:
-
-- Frontend: `http://localhost:8081`
-- Admin: `http://localhost:8081/admin.html`
-- Backend API: `http://localhost:5000/api`
-
-หยุดระบบ:
-
-```bash
-docker compose down
-```
-
-## Next Suggested Improvements
-
-- เพิ่ม `services/` และ `middlewares/` สำหรับ business logic และ error handling
-- เพิ่ม request validation สำหรับ endpoint ที่รับ payload
-- เพิ่ม test สำหรับ routes/controllers
+* **การเทสระบบ (Testing):** เรามี Unit Tests ครอบคลุมการทำงานอย่างน้อยของ `Rooms` และ `Bookings` ศึกษาหน้าตาของ Unit Tests สำหรับแอปได้ที่คอลเลคชันในโฟลเดอร์ `backend/tests/` รันคำสั่งด้วย `npm test`
+* **โครงสร้างอ้างอิงอื่นๆ:** ศึกษาแบบแปลนเอกสารรีวิวได้เพิ่มเติมแบบเจาะจงโฟลเดอร์ที่ `docs/PROJECT_STRUCTURE.md`
